@@ -1,5 +1,5 @@
 datamodule:
-  _target_: src.pl_data.datamodule.EpisodeModule
+  _target_: src.pl_data.mdrnn_datamodule.MdRnnDataModule
 
   datasets:
     train:
