@@ -57,20 +57,44 @@ class GameEpisodeDataset(Dataset):
         return len(self.indices)
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
+        # load rollout
         npz = np.load(self.fpaths[self.indices[idx]])
+
+        # observations and next observations
         obs = npz["observations"] / 255
         roll_dim, H, W, C = obs.shape
-        actions = npz["actions"][:roll_dim]
         n_seq = roll_dim // self.seq_len
         end_seq = n_seq * self.seq_len
-
         obs = obs[:end_seq].reshape([-1, self.seq_len, H, W, C])
-        actions = actions[:end_seq].reshape([-1, self.seq_len])
-
         obs = torch.as_tensor(obs).permute(0, 1, 4, 2, 3)
+        # current observations (exclude last, it has no following observation)
+        current_obs = obs[:, :-1, ...]
+        # next observations (exclude first, it has no previous observation)
+        next_obs = obs[:, 1:, ...]
+
+        # actions
+        # we need to cut the actions according to the number of actions done in the current rollout
+        actions = npz["actions"][:roll_dim]
+        actions = actions[:end_seq].reshape([-1, self.seq_len])
         actions = torch.as_tensor(actions, dtype=torch.float)
 
-        return {"observations": obs, "actions": actions}
+        # reward
+        rewards = npz["rewards"]
+        rewards = rewards[:end_seq].reshape([-1, self.seq_len])
+        rewards = torch.as_tensor(rewards, dtype=torch.float)
+
+        # terminal
+        terminals = npz["terminals"]
+        terminals = terminals[:end_seq].reshape([-1, self.seq_len])
+        terminals = torch.as_tensor(terminals, dtype=torch.float)
+
+        return {
+            "obs": current_obs,
+            "actions": actions,
+            "rewards": rewards,
+            "terminals": terminals,
+            "next_obs": next_obs,
+        }
 
     def __repr__(self) -> str:
         return f"MyDataset({self.name=}, {self.path=})"
@@ -81,6 +105,7 @@ def main(cfg: omegaconf.DictConfig):
     dataset: GameEpisodeDataset = hydra.utils.instantiate(
         cfg.data.datamodule.datasets.train, _recursive_=False
     )
+    return dataset
 
 
 if __name__ == "__main__":
