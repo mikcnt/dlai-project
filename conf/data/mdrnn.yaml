@@ -1,0 +1,31 @@
+datamodule:
+  _target_: src.pl_data.datamodule.EpisodeModule
+
+  datasets:
+    train:
+      _target_: src.pl_data.dataset.GameEpisodeDataset
+      name: YourTrainDatasetName
+      path: ${oc.env:YOUR_TRAIN_DATASET_PATH}
+      seq_len: 32
+
+    val:
+      - _target_: src.pl_data.dataset.GameEpisodeDataset
+        name: YourValDatasetName
+        path: ${oc.env:YOUR_VAL_DATASET_PATH}
+        seq_len: 32
+
+    test:
+      - _target_: src.pl_data.dataset.GameEpisodeDataset
+        name: YourTestDatasetName
+        path: ${oc.env:YOUR_TEST_DATASET_PATH}
+        seq_len: 32
+
+  batch_size:
+    train: 32
+    val: 16
+    test: 16
+
+  drop_last:
+    train: True
+    val: True
+    test: True
