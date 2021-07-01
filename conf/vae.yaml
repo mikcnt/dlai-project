@@ -8,8 +8,8 @@ defaults:
   - data: vae
   - hydra: default
   - logging: default
-  - model: default
-  - optim: default
+  - model: vae
+  - optim: vae
   - train: default
 #    Decomment this parameter to get parallel job running
 #  - hydra/launcher: joblib
