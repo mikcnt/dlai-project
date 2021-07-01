@@ -5,7 +5,6 @@ from typing import Dict
 import hydra
 import numpy as np
 import omegaconf
-import pytorch_lightning as pl
 import torch
 from omegaconf import ValueNode
 from torch.utils.data import Dataset
@@ -30,7 +29,10 @@ class GameSceneDataset(Dataset):
 
     def __getitem__(self, idx: int) -> torch.Tensor:
         npz = np.load(self.fpaths[self.indices[idx]])
-        obs = torch.as_tensor(npz["observations"]).permute(2, 0, 1)
+        obs = (
+            torch.as_tensor(npz["observations"], dtype=torch.float32).permute(2, 0, 1)
+            / 255
+        )
         return obs
 
     def __repr__(self) -> str:
@@ -56,16 +58,14 @@ class GameEpisodeDataset(Dataset):
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
         npz = np.load(self.fpaths[self.indices[idx]])
-        obs = npz["observations"]  # (rollout_dimension, H, W, C) np array
+        obs = npz["observations"] / 255
         roll_dim, H, W, C = obs.shape
-        actions = npz["actions"][:roll_dim]  # (rollout_dimension, ) np array
+        actions = npz["actions"][:roll_dim]
         n_seq = roll_dim // self.seq_len
-        end_seq = n_seq * self.seq_len  # T' = end of sequence
+        end_seq = n_seq * self.seq_len
 
-        obs = obs[:end_seq].reshape(
-            [-1, self.seq_len, H, W, C]
-        )  # (N_seq, seq_len, H, W, C)
-        actions = actions[:end_seq].reshape([-1, self.seq_len])  # (N_seq, seq_len)
+        obs = obs[:end_seq].reshape([-1, self.seq_len, H, W, C])
+        actions = actions[:end_seq].reshape([-1, self.seq_len])
 
         obs = torch.as_tensor(obs).permute(0, 1, 4, 2, 3)
         actions = torch.as_tensor(actions, dtype=torch.float)
