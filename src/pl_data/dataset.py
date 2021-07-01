@@ -1,6 +1,6 @@
 import glob
 import os
-from typing import Dict, Tuple, Union
+from typing import Dict
 
 import hydra
 import numpy as np
@@ -24,16 +24,11 @@ class GameSceneDataset(Dataset):
         self.name = name
         self.fpaths = sorted(glob.glob(os.path.join(path, "rollout_*/img_*.npz")))
         self.indices = np.arange(0, len(self.fpaths))
-        # n_trainset = int(len(indices) * (1.0 - test_ratio))
-        # n_trainset = len(indices)
-        # self.train_indices = indices[:n_trainset]
-        # self.test_indices = indices[n_trainset:]
-        # self.indices = self.train_indices if training else self.test_indices
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.indices)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> torch.Tensor:
         npz = np.load(self.fpaths[self.indices[idx]])
         obs = torch.as_tensor(npz["observations"]).permute(2, 0, 1)
         return obs
@@ -48,18 +43,12 @@ class GameEpisodeDataset(Dataset):
         name: ValueNode,
         path: ValueNode,
         seq_len: int = 32,
-        # training: bool = True,
-        # test_ratio: float = 0.01,
     ):
         super().__init__()
         self.path = path
         self.name = name
         self.fpaths = sorted(glob.glob(os.path.join(path, "rollout_*/rollout_*.npz")))
         self.indices = np.arange(0, len(self.fpaths))
-        # n_trainset = int(len(indices) * (1.0 - test_ratio))
-        # self.train_indices = indices[:n_trainset]
-        # self.test_indices = indices[n_trainset:]
-        # self.indices = self.train_indices if training else self.test_indices
         self.seq_len = seq_len
 
     def __len__(self) -> int:
