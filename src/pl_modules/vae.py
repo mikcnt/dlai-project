@@ -119,12 +119,12 @@ class VaeModel(pl.LightningModule):
         Returns:
             output_dict: forward output containing the predictions (output logits ecc...) and the loss if any.
         """
-        recon_batch, mu, logvar = self.model(batch)
-        loss = self.loss_function(recon_batch, batch, mu, logvar)
-        return {"recon_batch": recon_batch, "loss": loss}
+        return self.model(batch)
 
     def step(self, batch: Any, batch_idx: int):
-        return self(batch)
+        recon_batch, mu, logvar = self(batch)
+        loss = self.loss_function(recon_batch, batch, mu, logvar)
+        return {"recon_batch": recon_batch, "loss": loss}
 
     def training_step(self, batch: Any, batch_idx: int) -> torch.Tensor:
         loss = self.step(batch, batch_idx)["loss"]
@@ -180,7 +180,7 @@ class VaeModel(pl.LightningModule):
         )
         return {
             "optimizer": opt,
-            "scheduler": scheduler,
+            "lr_scheduler": scheduler,
             "monitor": "val_loss",
         }
         # return [opt], [scheduler]
