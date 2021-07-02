@@ -113,52 +113,52 @@ class MDRNN(_MDRNNBase):
         return mus, sigmas, logpi, rs, ds
 
 
-# class MDRNNCell(_MDRNNBase):
-#     """MDRNN model for one step forward"""
-#
-#     def __init__(self, latents, actions, hiddens, gaussians):
-#         super().__init__(latents, actions, hiddens, gaussians)
-#         self.rnn = nn.LSTMCell(latents + actions, hiddens)
-#
-#     def forward(self, action, latent, hidden):  # pylint: disable=arguments-differ
-#         """ONE STEP forward.
-#         :args actions: (BSIZE, ASIZE) torch tensor
-#         :args latents: (BSIZE, LSIZE) torch tensor
-#         :args hidden: (BSIZE, RSIZE) torch tensor
-#         :returns: mu_nlat, sig_nlat, pi_nlat, r, d, next_hidden, parameters of
-#         the GMM prediction for the next latent, gaussian prediction of the
-#         reward, logit prediction of terminality and next hidden state.
-#             - mu_nlat: (BSIZE, N_GAUSS, LSIZE) torch tensor
-#             - sigma_nlat: (BSIZE, N_GAUSS, LSIZE) torch tensor
-#             - logpi_nlat: (BSIZE, N_GAUSS) torch tensor
-#             - rs: (BSIZE) torch tensor
-#             - ds: (BSIZE) torch tensor
-#         """
-#         in_al = torch.cat([action, latent], dim=1)
-#
-#         next_hidden = self.rnn(in_al, hidden)
-#         out_rnn = next_hidden[0]
-#
-#         out_full = self.gmm_linear(out_rnn)
-#
-#         stride = self.gaussians * self.latents
-#
-#         mus = out_full[:, :stride]
-#         mus = mus.view(-1, self.gaussians, self.latents)
-#
-#         sigmas = out_full[:, stride : 2 * stride]
-#         sigmas = sigmas.view(-1, self.gaussians, self.latents)
-#         sigmas = torch.exp(sigmas)
-#
-#         pi = out_full[:, 2 * stride : 2 * stride + self.gaussians]
-#         pi = pi.view(-1, self.gaussians)
-#         logpi = f.log_softmax(pi, dim=-1)
-#
-#         r = out_full[:, -2]
-#
-#         d = out_full[:, -1]
-#
-#         return mus, sigmas, logpi, r, d, next_hidden
+class MDRNNCell(_MDRNNBase):
+    """MDRNN model for one step forward"""
+
+    def __init__(self, latents, actions, hiddens, gaussians):
+        super().__init__(latents, actions, hiddens, gaussians)
+        self.rnn = nn.LSTMCell(latents + actions, hiddens)
+
+    def forward(self, action, latent, hidden):  # pylint: disable=arguments-differ
+        """ONE STEP forward.
+        :args actions: (BSIZE, ASIZE) torch tensor
+        :args latents: (BSIZE, LSIZE) torch tensor
+        :args hidden: (BSIZE, RSIZE) torch tensor
+        :returns: mu_nlat, sig_nlat, pi_nlat, r, d, next_hidden, parameters of
+        the GMM prediction for the next latent, gaussian prediction of the
+        reward, logit prediction of terminality and next hidden state.
+            - mu_nlat: (BSIZE, N_GAUSS, LSIZE) torch tensor
+            - sigma_nlat: (BSIZE, N_GAUSS, LSIZE) torch tensor
+            - logpi_nlat: (BSIZE, N_GAUSS) torch tensor
+            - rs: (BSIZE) torch tensor
+            - ds: (BSIZE) torch tensor
+        """
+        in_al = torch.cat([action, latent], dim=1)
+
+        next_hidden = self.rnn(in_al, hidden)
+        out_rnn = next_hidden[0]
+
+        out_full = self.gmm_linear(out_rnn)
+
+        stride = self.gaussians * self.latents
+
+        mus = out_full[:, :stride]
+        mus = mus.view(-1, self.gaussians, self.latents)
+
+        sigmas = out_full[:, stride : 2 * stride]
+        sigmas = sigmas.view(-1, self.gaussians, self.latents)
+        sigmas = torch.exp(sigmas)
+
+        pi = out_full[:, 2 * stride : 2 * stride + self.gaussians]
+        pi = pi.view(-1, self.gaussians)
+        logpi = f.log_softmax(pi, dim=-1)
+
+        r = out_full[:, -2]
+
+        d = out_full[:, -1]
+
+        return mus, sigmas, logpi, r, d, next_hidden
 
 
 class MDRNNModel(pl.LightningModule):
@@ -334,7 +334,7 @@ class MDRNNModel(pl.LightningModule):
         }
 
 
-@hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="vae")
+@hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="mdrnn")
 def main(cfg: omegaconf.DictConfig):
     model: pl.LightningModule = hydra.utils.instantiate(
         cfg.model,
