@@ -100,7 +100,6 @@ class MdRnnDataModule(pl.LightningDataModule):
         return (
             f"{self.__class__.__name__}("
             f"{self.datasets=}, "
-            f"{self.num_workers=}, "
             f"{self.batch_size=})"
         )
 

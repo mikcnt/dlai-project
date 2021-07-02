@@ -63,19 +63,27 @@ class GameEpisodeDataset(Dataset):
         # observations and next observations
         obs = npz["observations"] / 255
         roll_dim, H, W, C = obs.shape
-        n_seq = roll_dim // self.seq_len
+        n_seq = (
+            roll_dim // self.seq_len
+            if roll_dim % self.seq_len != 0
+            else roll_dim // self.seq_len - 1
+        )
         end_seq = n_seq * self.seq_len
-        obs = obs[:end_seq].reshape([-1, self.seq_len, H, W, C])
-        obs = torch.as_tensor(obs).permute(0, 1, 4, 2, 3)
+
         # current observations (exclude last, it has no following observation)
-        current_obs = obs[:, :-1, ...]
+        curr_obs = obs[:end_seq]
+        curr_obs = curr_obs.reshape([-1, self.seq_len, H, W, C])
+        curr_obs = torch.as_tensor(curr_obs, dtype=torch.float32).permute(0, 1, 4, 2, 3)
+
         # next observations (exclude first, it has no previous observation)
-        next_obs = obs[:, 1:, ...]
+        next_obs = obs[1 : end_seq + 1]
+        next_obs = next_obs.reshape([-1, self.seq_len, H, W, C])
+        next_obs = torch.as_tensor(next_obs, dtype=torch.float32).permute(0, 1, 4, 2, 3)
 
         # actions
         # we need to cut the actions according to the number of actions done in the current rollout
         actions = npz["actions"][:roll_dim]
-        actions = actions[:end_seq].reshape([-1, self.seq_len])
+        actions = actions[:end_seq].reshape([-1, self.seq_len, 1])
         actions = torch.as_tensor(actions, dtype=torch.float)
 
         # reward
@@ -89,7 +97,7 @@ class GameEpisodeDataset(Dataset):
         terminals = torch.as_tensor(terminals, dtype=torch.float)
 
         return {
-            "obs": current_obs,
+            "obs": curr_obs,
             "actions": actions,
             "rewards": rewards,
             "terminals": terminals,

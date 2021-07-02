@@ -7,9 +7,9 @@ core:
 defaults:
   - data: mdrnn
   - hydra: default
-  - logging: default
-  - model: default
-  - optim: default
-  - train: default
+  - logging: mdrnn
+  - model: mdrnn
+  - optim: mdrnn
+  - train: mdrnn
 #    Decomment this parameter to get parallel job running
 #  - hydra/launcher: joblib

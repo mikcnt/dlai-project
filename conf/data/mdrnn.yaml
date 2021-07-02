@@ -22,8 +22,8 @@ datamodule:
 
   batch_size:
     train: 32
-    val: 16
-    test: 16
+    val: 32
+    test: 32
 
   drop_last:
     train: True

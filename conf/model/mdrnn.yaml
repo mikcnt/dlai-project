@@ -1,0 +1,20 @@
+_target_: src.pl_modules.mdrnn.MDRNNModel
+
+#latents: 32
+#actions: 3
+#hiddens: 256
+#gaussians: 5
+#size: 64
+#red_size: 64
+#seq_len: 32
+
+ASIZE: 1
+LSIZE: 32
+RSIZE: 256
+RED_SIZE: 64
+SIZE: 64
+SEQ_LEN: 32
+BSIZE: 32
+
+
+vae_checkpoint_path: ${oc.env:PROJECT_ROOT}/vae.ckpt
