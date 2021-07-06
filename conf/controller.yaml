@@ -1,0 +1,15 @@
+# metadata specialised for each experiment
+core:
+  version: 0.0.1
+  tags:
+    - mytag
+
+defaults:
+  - data: controller
+  - hydra: default
+  - logging: controller
+  - model: controller
+  - optim: controller
+  - train: controller
+#    Decomment this parameter to get parallel job running
+#  - hydra/launcher: joblib

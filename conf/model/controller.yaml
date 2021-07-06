@@ -1,0 +1,19 @@
+_target_: src.pl_modules.mdrnn.MDRNNModel
+
+n_samples: 4
+pop_size: 4
+target_return: 950
+max_workers: 10
+
+ASIZE: 1
+LSIZE: 32
+RSIZE: 256
+RED_SIZE: 64
+SIZE: 64
+
+controller_path: ${oc.env:PROJECT_ROOT}/controller
+display: True
+
+vae_checkpoint_path: ${oc.env:PROJECT_ROOT}/vae.ckpt
+mdrnn_checkpoint_path: ${oc.env:PROJECT_ROOT}/rnn.ckpt
+controller_checkpoint_path: ${oc.env:PROJECT_ROOT}/controller/best.tar
