@@ -70,9 +70,7 @@ class RolloutGenerator(object):
         )
 
         # load MDRNN
-        rnn_state = torch.load(
-            cfg.model.mdrnn_checkpoint_path, map_location={"cuda:0": str(device)}
-        )
+        rnn_state = torch.load(cfg.model.mdrnn_checkpoint_path, map_location=device)
         rnn_state = rnn_state["state_dict"]
         rnn_state = rnn_adjust_parameters(rnn_state)
         self.mdrnn = MDRNNCell(cfg.model.LSIZE, cfg.model.ASIZE, cfg.model.RSIZE, 5).to(
@@ -89,7 +87,7 @@ class RolloutGenerator(object):
         if exists(cfg.model.controller_checkpoint_path):
             ctrl_state = torch.load(
                 cfg.model.controller_checkpoint_path,
-                map_location={"cuda:0": str(device)},
+                map_location=device,
             )
             print("Loading Controller with reward {}".format(ctrl_state["reward"]))
             self.controller.load_state_dict(ctrl_state["state_dict"])
