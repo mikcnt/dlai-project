@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader, Dataset
 
 from src.common.utils import PROJECT_ROOT
 
+
 def worker_init_fn(id: int):
     """
     DataLoaders workers init function.

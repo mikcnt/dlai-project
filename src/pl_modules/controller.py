@@ -67,8 +67,7 @@ class RolloutGenerator(object):
         # load VAE
         self.vae = VaeModel.load_from_checkpoint(
             cfg.model.vae_checkpoint_path, map_location=device
-        )
-
+        ).to(device)
         # load MDRNN
         rnn_state = torch.load(cfg.model.mdrnn_checkpoint_path, map_location=device)
         rnn_state = rnn_state["state_dict"]
@@ -240,8 +239,8 @@ class ControllerPipeline(object):
         )
 
         # redirect streams
-        # sys.stdout = open(join(self.tmp_dir, str(getpid()) + ".out"), "a")
-        # sys.stderr = open(join(self.tmp_dir, str(getpid()) + ".err"), "a")
+        sys.stdout = open(join(self.tmp_dir, str(getpid()) + ".out"), "a")
+        sys.stderr = open(join(self.tmp_dir, str(getpid()) + ".err"), "a")
 
         with torch.no_grad():
             r_gen = RolloutGenerator(self.cfg, device, self.time_limit)
