@@ -29,7 +29,7 @@ class CustomDataLoader(object):
                         for key in self.dataset[idx].keys()
                     }
                     batch = {
-                        key: batch[key][self.batch_size:]
+                        key: batch[key][self.batch_size :]
                         for key in self.dataset[idx].keys()
                     }
                     yield return_batch
