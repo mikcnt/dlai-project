@@ -8,3 +8,4 @@
 * [More recent - not strict implementation in Pytorch](https://github.com/sebastianrisi/ga-world-models)
 * [Nice brief explaination (S.E.) of differences between RL and model-based RL](https://ai.stackexchange.com/a/6733)
 * [Survey on model-based RL models](https://arxiv.org/pdf/2006.16712.pdf)
+* [Nice all-round new code and explaination](https://adgefficiency.com/world-models/)
