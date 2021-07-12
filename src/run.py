@@ -45,6 +45,7 @@ def build_callbacks(cfg: DictConfig) -> List[Callback]:
         hydra.utils.log.info(f"Adding callback <ModelCheckpoint>")
         callbacks.append(
             ModelCheckpoint(
+                dirpath=cfg.train.model_checkpoints.checkpoint_path,
                 monitor=cfg.train.monitor_metric,
                 mode=cfg.train.monitor_metric_mode,
                 save_top_k=cfg.train.model_checkpoints.save_top_k,

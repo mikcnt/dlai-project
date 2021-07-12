@@ -1,4 +1,7 @@
-from typing import Any, Dict, Sequence, Tuple, Union
+from typing import Any, Dict, Sequence, Tuple, Union, List
+
+import torchvision
+import wandb
 from torch import nn
 import hydra
 import omegaconf
@@ -109,7 +112,33 @@ class VaeModel(pl.LightningModule):
         # https://arxiv.org/abs/1312.6114
         # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
         KLD = -0.5 * torch.sum(1 + 2 * logsigma - mu.pow(2) - (2 * logsigma).exp())
-        return BCE + KLD
+        return {"reconstruction_loss": BCE, "continuity_loss": KLD}
+
+    def get_image_examples(
+        self, real: torch.Tensor, fake: torch.Tensor
+    ) -> Sequence[wandb.Image]:
+        """
+        Given real and "fake" translated images, produce a nice coupled images to log
+
+        :param real: the real images with shape [batch, channel, w, h]
+        :param fake: the fake image with shape [batch, channel, w, h]
+
+        :returns: a sequence of wandb.Image to log and visualize the performance
+        """
+        example_images = []
+        for i in range(real.shape[0]):
+            couple = torchvision.utils.make_grid(
+                [real[i], fake[i]],
+                nrow=2,
+                normalize=True,
+                scale_each=True,
+                pad_value=1,
+                padding=4,
+            )
+            example_images.append(
+                wandb.Image(couple.permute(1, 2, 0).detach().cpu().numpy(), mode="RGB")
+            )
+        return example_images
 
     def forward(self, batch, **kwargs) -> Dict[str, torch.Tensor]:
         """
@@ -123,35 +152,69 @@ class VaeModel(pl.LightningModule):
 
     def step(self, batch: Any, batch_idx: int):
         recon_batch, mu, logvar = self(batch)
-        loss = self.loss_function(recon_batch, batch, mu, logvar)
-        return {"recon_batch": recon_batch, "loss": loss}
+        losses = self.loss_function(recon_batch, batch, mu, logvar)
+
+        return {"recon_batch": recon_batch, "losses": losses}
 
     def training_step(self, batch: Any, batch_idx: int) -> torch.Tensor:
-        loss = self.step(batch, batch_idx)["loss"]
+        losses = self.step(batch, batch_idx)["losses"]
+        recon_loss = losses["reconstruction_loss"]
+        cont_loss = losses["continuity_loss"]
+        train_loss = recon_loss + cont_loss
         self.log_dict(
-            {"train_loss": loss},
+            {
+                "train_loss": train_loss,
+                "train_recon_loss": recon_loss,
+                "train_cont_loss": cont_loss,
+            },
             on_step=True,
-            on_epoch=True,
-            prog_bar=True,
+            prog_bar=False,
         )
-        return loss
+        return train_loss
 
-    def validation_step(self, batch: Any, batch_idx: int) -> torch.Tensor:
-        loss = self.step(batch, batch_idx)["loss"]
+    def validation_step(self, batch: Any, batch_idx: int) -> Dict[str, torch.Tensor]:
+        output = self.step(batch, batch_idx)
+        recon_batch = output["recon_batch"]
+        images = self.get_image_examples(batch, recon_batch)
+        losses = self.step(batch, batch_idx)["losses"]
+        recon_loss = losses["reconstruction_loss"]
+        cont_loss = losses["continuity_loss"]
+        val_loss = recon_loss + cont_loss
         self.log_dict(
-            {"val_loss": loss},
+            {
+                "val_loss": val_loss,
+                "val_recon_loss": recon_loss,
+                "val_cont_loss": cont_loss,
+            },
             on_step=False,
             on_epoch=True,
             prog_bar=True,
         )
-        return loss
+
+        return {"val_loss": val_loss, "images": images}
+
+    def validation_epoch_end(self, outputs: List[Any]) -> None:
+        images = []
+
+        for x in outputs:
+            images.extend(x["images"])
+
+        images = images[: self.hparams.logging.n_log_images]
+
+        # ignore if it not a real validation epoch. The first one is not.
+        print(f"Logged {len(images)} images for each category.")
+
+        self.logger.experiment.log(
+            {f"images_{self.current_epoch}": images},
+        )
 
     def test_step(self, batch: Any, batch_idx: int) -> torch.Tensor:
-        loss = self.step(batch, batch_idx)["loss"]
+        losses = self.step(batch, batch_idx)["losses"]
+        test_loss = losses["reconstruction_loss"] + losses["continuity_loss"]
         self.log_dict(
-            {"test_loss": loss},
+            {"test_loss": test_loss},
         )
-        return loss
+        return test_loss
 
     def configure_optimizers(
         self,

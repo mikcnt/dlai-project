@@ -1,12 +1,13 @@
 # log frequency
 val_check_interval: 1.0
 progress_bar_refresh_rate: 20
+n_log_images: 32
 
 wandb:
-  project: nn-template
+  project: world-models-vae
   entity: null
   log_model: True
-  mode: 'offline'
+  mode: 'online'
 
 wandb_watch:
   log: 'all'

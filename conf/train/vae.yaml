@@ -8,10 +8,9 @@ pl_trainer:
   fast_dev_run: False # Enable this for debug purposes
   gpus: 1
   precision: 32
-  max_steps: 10000
+  max_epochs: 100
   accumulate_grad_batches: 1
   num_sanity_val_steps: 2
-  gradient_clip_val: 10.0
 
 monitor_metric: 'val_loss'
 monitor_metric_mode: 'min'
@@ -21,5 +20,6 @@ early_stopping:
   verbose: False
 
 model_checkpoints:
+  checkpoint_path: ${oc.env:PROJECT_ROOT}/checkpoints/vae
   save_top_k: 2
   verbose: False
