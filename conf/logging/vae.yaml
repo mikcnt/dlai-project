@@ -5,7 +5,7 @@ n_log_images: 32
 
 wandb:
   project: world-models-vae
-  entity: null
+  entity: cool-boys
   log_model: True
   mode: 'online'
 
