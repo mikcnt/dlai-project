@@ -87,7 +87,7 @@ if __name__ == "__main__":
     random.seed(42)
     np.random.seed(42)
     parser = argparse.ArgumentParser()
-    parser.add_argument("--rollouts", type=int, help="Number of rollouts", default=100)
+    parser.add_argument("--rollouts", type=int, help="Number of rollouts", default=1000)
     parser.add_argument(
         "--dir", type=str, help="Where to place rollouts", default="../all_rollouts/"
     )
