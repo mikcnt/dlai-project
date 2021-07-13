@@ -23,6 +23,6 @@ datamodule:
     test: 4
 
   batch_size:
-    train: 32
+    train: 64  # 32
     val: 16
     test: 16
