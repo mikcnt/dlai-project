@@ -3,10 +3,10 @@ val_check_interval: 1.0
 progress_bar_refresh_rate: 20
 
 wandb:
-  project: nn-template
-  entity: null
+  project: world-models-mdrnn
+  entity: cool-boys
   log_model: True
-  mode: 'offline'
+  mode: 'online'
 
 wandb_watch:
   log: 'all'
