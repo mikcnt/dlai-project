@@ -102,16 +102,32 @@ class VaeModel(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()  # populate self.hparams with args and kwargs automagically!
         self.model = VAE(self.hparams.img_channels, self.hparams.latent_size)
+        self.recon_loss = nn.MSELoss()
+
+    # def loss_function(self, recon_x, x, mu, logsigma):
+    # """VAE loss function"""
+    # BCE = F.mse_loss(recon_x, x, size_average=False)
+
+    # see Appendix B from VAE paper:
+    # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
+    # https://arxiv.org/abs/1312.6114
+    ## 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
+    # KLD = -0.5 * torch.sum(1 + 2 * logsigma - mu.pow(2) - (2 * logsigma).exp())
+    # return {"reconstruction_loss": BCE, "continuity_loss": KLD}
 
     def loss_function(self, recon_x, x, mu, logsigma):
         """VAE loss function"""
-        BCE = F.mse_loss(recon_x, x, size_average=False)
+        BCE = self.recon_loss(recon_x, x)
 
         # see Appendix B from VAE paper:
         # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
         # https://arxiv.org/abs/1312.6114
         # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
-        KLD = -0.5 * torch.sum(1 + 2 * logsigma - mu.pow(2) - (2 * logsigma).exp())
+        KLD = torch.mean(
+            -0.5
+            * torch.sum(1 + 2 * logsigma - mu.pow(2) - (2 * logsigma).exp(), dim=1),
+            dim=0,
+        )
         return {"reconstruction_loss": BCE, "continuity_loss": KLD}
 
     def get_image_examples(
