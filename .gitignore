@@ -218,3 +218,9 @@ fabric.properties
 
 # Data
 *.npz
+
+# Wandb logs
+wandb
+
+# Controller files
+controller
