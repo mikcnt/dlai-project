@@ -3,29 +3,31 @@ datamodule:
 
   datasets:
     train:
-      _target_: src.pl_data.dataset.GameEpisodeDataset
+      _target_: src.pl_data.dataset.MyDataset
       name: YourTrainDatasetName
-      path: ${oc.env:YOUR_TRAIN_DATASET_PATH}
-      seq_len: 32
+      path: ${oc.env:NEW_TRAIN}
 
     val:
-      - _target_: src.pl_data.dataset.GameEpisodeDataset
+      - _target_: src.pl_data.dataset.MyDataset
         name: YourValDatasetName
-        path: ${oc.env:YOUR_VAL_DATASET_PATH}
-        seq_len: 32
+        path: ${oc.env:NEW_VAL}
 
     test:
-      - _target_: src.pl_data.dataset.GameEpisodeDataset
+      - _target_: src.pl_data.dataset.MyDataset
         name: YourTestDatasetName
-        path: ${oc.env:YOUR_TEST_DATASET_PATH}
-        seq_len: 32
+        path: ${oc.env:NEW_TEST}
+
+  num_workers:
+    train: 8
+    val: 4
+    test: 4
 
   batch_size:
-    train: 32
-    val: 32
-    test: 32
+    train: None
+    val: None
+    test: None
 
-  drop_last:
-    train: True
-    val: True
-    test: True
+#  drop_last:
+#    train: True
+#    val: True
+#    test: True

@@ -36,12 +36,12 @@ class MdRnnDataModule(pl.LightningDataModule):
         self,
         datasets: DictConfig,
         batch_size: DictConfig,
-        drop_last: DictConfig,
+        num_workers: DictConfig,
     ):
         super().__init__()
         self.datasets = datasets
         self.batch_size = batch_size
-        self.drop_last = drop_last
+        self.num_workers = num_workers
 
         self.train_dataset: Optional[Dataset] = None
         self.val_datasets: Optional[Sequence[Dataset]] = None
@@ -66,41 +66,42 @@ class MdRnnDataModule(pl.LightningDataModule):
                 for dataset_cfg in self.datasets.test
             ]
 
-    def train_dataloader(self) -> CustomDataLoader:
-        return CustomDataLoader(
+    def train_dataloader(self) -> DataLoader:
+        return DataLoader(
             self.train_dataset,
-            batch_size=self.batch_size.train,
             shuffle=True,
-            drop_last=self.drop_last.train,
+            batch_size=None,
+            num_workers=self.num_workers.train,
+            worker_init_fn=worker_init_fn,
         )
 
-    def val_dataloader(self) -> Sequence[CustomDataLoader]:
+    def val_dataloader(self) -> Sequence[DataLoader]:
         return [
-            CustomDataLoader(
+            DataLoader(
                 dataset,
                 shuffle=False,
-                batch_size=self.batch_size.val,
-                drop_last=self.drop_last.val,
+                batch_size=None,
+                num_workers=self.num_workers.val,
+                worker_init_fn=worker_init_fn,
             )
             for dataset in self.val_datasets
         ]
 
-    def test_dataloader(self) -> Sequence[CustomDataLoader]:
+    def test_dataloader(self) -> Sequence[DataLoader]:
         return [
-            CustomDataLoader(
+            DataLoader(
                 dataset,
                 shuffle=False,
-                batch_size=self.batch_size.test,
-                drop_last=self.drop_last.test,
+                batch_size=None,
+                num_workers=self.num_workers.test,
+                worker_init_fn=worker_init_fn,
             )
             for dataset in self.test_datasets
         ]
 
     def __repr__(self) -> str:
         return (
-            f"{self.__class__.__name__}("
-            f"{self.datasets=}, "
-            f"{self.batch_size=})"
+            f"{self.__class__.__name__}(" f"{self.datasets=}, " f"{self.batch_size=})"
         )
 
 

@@ -1,5 +1,7 @@
 import glob
 import os
+from os import listdir
+from os.path import join
 from typing import Dict
 
 import hydra
@@ -106,6 +108,19 @@ class GameEpisodeDataset(Dataset):
 
     def __repr__(self) -> str:
         return f"MyDataset({self.name=}, {self.path=})"
+
+
+class MyDataset(Dataset):
+    def __init__(self, path, name):
+        super(MyDataset, self).__init__()
+        self.name = name
+        self.items = [join(path, item) for item in listdir(path)]
+
+    def __len__(self):
+        return len(self.items)
+
+    def __getitem__(self, idx):
+        return torch.load(self.items[idx])
 
 
 @hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="default")
