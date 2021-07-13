@@ -102,32 +102,15 @@ class VaeModel(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()  # populate self.hparams with args and kwargs automagically!
         self.model = VAE(self.hparams.img_channels, self.hparams.latent_size)
-        self.recon_loss = nn.MSELoss()
 
-    # def loss_function(self, recon_x, x, mu, logsigma):
-    # """VAE loss function"""
-    # BCE = F.mse_loss(recon_x, x, size_average=False)
-
-    # see Appendix B from VAE paper:
-    # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
-    # https://arxiv.org/abs/1312.6114
-    ## 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
-    # KLD = -0.5 * torch.sum(1 + 2 * logsigma - mu.pow(2) - (2 * logsigma).exp())
-    # return {"reconstruction_loss": BCE, "continuity_loss": KLD}
+        self.count = 0
 
     def loss_function(self, recon_x, x, mu, logsigma):
         """VAE loss function"""
-        BCE = self.recon_loss(recon_x, x)
+        BCE = F.mse_loss(recon_x, x, size_average=False)
 
-        # see Appendix B from VAE paper:
-        # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
-        # https://arxiv.org/abs/1312.6114
         # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
-        KLD = torch.mean(
-            -0.5
-            * torch.sum(1 + 2 * logsigma - mu.pow(2) - (2 * logsigma).exp(), dim=1),
-            dim=0,
-        )
+        KLD = -0.5 * torch.sum(1 + 2 * logsigma - mu.pow(2) - (2 * logsigma).exp())
         return {"reconstruction_loss": BCE, "continuity_loss": KLD}
 
     def get_image_examples(
@@ -141,20 +124,26 @@ class VaeModel(pl.LightningModule):
 
         :returns: a sequence of wandb.Image to log and visualize the performance
         """
-        example_images = []
-        for i in range(real.shape[0]):
-            couple = torchvision.utils.make_grid(
-                [real[i], fake[i]],
-                nrow=2,
-                normalize=True,
-                scale_each=True,
-                pad_value=1,
-                padding=4,
-            )
-            example_images.append(
-                wandb.Image(couple.permute(1, 2, 0).detach().cpu().numpy(), mode="RGB")
-            )
-        return example_images
+        if self.count < self.hparams.logging.n_log_images:
+            self.count += 1
+            example_images = []
+            for i in range(real.shape[0]):
+                couple = torchvision.utils.make_grid(
+                    [real[i], fake[i]],
+                    nrow=2,
+                    normalize=True,
+                    scale_each=True,
+                    pad_value=1,
+                    padding=4,
+                )
+                example_images.append(
+                    wandb.Image(
+                        couple.permute(1, 2, 0).detach().cpu().numpy(), mode="RGB"
+                    )
+                )
+            return example_images
+        else:
+            return []
 
     def forward(self, batch, **kwargs) -> Dict[str, torch.Tensor]:
         """
@@ -212,10 +201,12 @@ class VaeModel(pl.LightningModule):
     def validation_epoch_end(self, outputs: List[Any]) -> None:
         images = []
 
+        self.count = 0
+
         for x in outputs:
             images.extend(x["images"])
 
-        images = images[: self.hparams.logging.n_log_images]
+        # images = images[: self.hparams.logging.n_log_images]
 
         # ignore if it not a real validation epoch. The first one is not.
         print(f"Logged {len(images)} images for each category.")
