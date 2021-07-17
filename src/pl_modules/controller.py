@@ -11,6 +11,8 @@ from omegaconf import DictConfig
 from torchvision.transforms import transforms
 from tqdm import tqdm
 
+import matplotlib.pyplot as plt
+
 from src.common.utils import PROJECT_ROOT
 
 import torch
@@ -29,13 +31,20 @@ from src.pl_modules.vae import VaeModel
 
 
 class Controller(nn.Module):
-    def __init__(self, latents, recurrents, actions):
+    def __init__(self, latents, recurrents, actions, action_space=15):
         super().__init__()
-        self.fc = nn.Linear(in_features=latents + recurrents, out_features=actions)
+        # self.fc = nn.Linear(in_features=latents + recurrents, out_features=actions)
+        self.softmax = nn.Softmax(dim=1)
+        self.fc = nn.Linear(in_features=latents + recurrents, out_features=action_space)
+
+        # self.relu = nn.ReLU()
 
     def forward(self, *inputs):
         cat_in = torch.cat(inputs, dim=1)
-        return self.fc(cat_in)
+        action_probs = self.softmax(self.fc(cat_in))
+        return action_probs
+
+        # return self.fc(cat_in)
 
 
 class RolloutGenerator(object):
@@ -109,7 +118,16 @@ class RolloutGenerator(object):
             - next_hidden (1 x 256) torch tensor
         """
         _, latent_mu, _ = self.vae(obs)
-        action = self.controller(latent_mu, hidden[0])
+        # action = self.controller(latent_mu, hidden[0])
+
+        action_probs = self.controller(latent_mu, hidden[0])
+        action_probs = action_probs.cpu().detach().numpy()
+        choices = []
+        for i in range(action_probs.shape[0]):
+            choice = np.random.choice(action_probs.shape[1], p=action_probs[i])
+            choices.append(choice)
+        action = torch.tensor(choices, device=self.device).unsqueeze(0)
+
         _, _, _, _, _, next_hidden = self.mdrnn(action, latent_mu, hidden)
         return action.squeeze().cpu().numpy(), next_hidden
 
@@ -137,7 +155,24 @@ class RolloutGenerator(object):
         i = 0
         while True:
             obs = self.transform(obs).unsqueeze(0).to(self.device)
+
+            np_obs = obs.squeeze().permute(1, 2, 0).detach().cpu().numpy()
+            # plt.imshow(np_obs)
+            # with torch.no_grad():
+            #     reconstruction = (
+            #         self.vae(obs)[0].squeeze().permute(1, 2, 0).detach().cpu().numpy()
+            #     )
+
+            # f, axarr = plt.subplots(2)
+            # plt.imshow(np_obs)
+            # axarr[1].imshow(reconstruction)
+            # plt.show()
+            # plt.pause(0.001)
+
             action, hidden = self.get_action_and_transition(obs, hidden)
+
+            # print(action)
+
             obs, reward, done, _ = self.env.step(action)
 
             if render:
@@ -239,8 +274,8 @@ class ControllerPipeline(object):
         )
 
         # redirect streams
-        sys.stdout = open(join(self.tmp_dir, str(getpid()) + ".out"), "a")
-        sys.stderr = open(join(self.tmp_dir, str(getpid()) + ".err"), "a")
+        # sys.stdout = open(join(self.tmp_dir, str(getpid()) + ".out"), "a")
+        # sys.stderr = open(join(self.tmp_dir, str(getpid()) + ".err"), "a")
 
         with torch.no_grad():
             r_gen = RolloutGenerator(self.cfg, device, self.time_limit)
@@ -269,8 +304,14 @@ class ControllerPipeline(object):
         )
 
         epoch = 0
-        log_step = 3
-        while not es.stop():
+        log_step = 3  # 3
+        ###################################
+        foo_count = 0
+        while True:  # not es.stop():
+            # foo_count += 1
+            # if foo_count > 10:
+            #     break
+            ######################################
             if cur_best is not None and -cur_best > self.target_return:
                 print("Already better than target, breaking...")
                 break
