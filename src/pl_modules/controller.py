@@ -7,9 +7,13 @@ import cma
 import gym
 import hydra
 import numpy as np
+from numpy.core.fromnumeric import argmax
 from omegaconf import DictConfig
 from torchvision.transforms import transforms
 from tqdm import tqdm
+
+from src.common.utils import get_env
+from scipy.special import softmax
 
 import matplotlib.pyplot as plt
 
@@ -31,17 +35,31 @@ from src.pl_modules.vae import VaeModel
 
 
 class Controller(nn.Module):
-    def __init__(self, latents, recurrents, actions, action_space=15):
+    def __init__(self, latents, recurrents, actions, action_space=9):  # action_space=15
         super().__init__()
         # self.fc = nn.Linear(in_features=latents + recurrents, out_features=actions)
         self.softmax = nn.Softmax(dim=1)
-        self.fc = nn.Linear(in_features=latents + recurrents, out_features=action_space)
+        # self.fc = nn.Linear(in_features=latents + recurrents, out_features=action_space)
+
+        self.fc = nn.Sequential(
+            *[
+                nn.Conv2d(3, 1, 3, 2, 1),
+                nn.Conv2d(1, 1, 3, 2, 1),
+                nn.Conv2d(1, 1, 3, 2, 1),
+                nn.Conv2d(1, 1, 3, 2, 1),
+                nn.Flatten(),
+                nn.Linear(4 * 4, 9),
+            ]
+        )
 
         # self.relu = nn.ReLU()
 
-    def forward(self, *inputs):
-        cat_in = torch.cat(inputs, dim=1)
-        action_probs = self.softmax(self.fc(cat_in))
+    def forward(self, inputs):
+        # cat_in = torch.cat(inputs, dim=1)
+        # action_probs = self.softmax(self.fc(cat_in))
+
+        action_probs = self.softmax(self.fc(inputs))
+
         return action_probs
 
         # return self.fc(cat_in)
@@ -62,7 +80,10 @@ class RolloutGenerator(object):
 
     def __init__(self, cfg, device, time_limit):
         """Build vae, rnn, controller and environment."""
+
         self.cfg = cfg
+
+        self.rollout_count = 0
 
         # transformations
         self.transform = transforms.Compose(
@@ -118,13 +139,22 @@ class RolloutGenerator(object):
             - next_hidden (1 x 256) torch tensor
         """
         _, latent_mu, _ = self.vae(obs)
+
         # action = self.controller(latent_mu, hidden[0])
 
-        action_probs = self.controller(latent_mu, hidden[0])
+        # action_probs = self.controller(latent_mu, hidden[0])
+        action_probs = self.controller(obs)
+
         action_probs = action_probs.cpu().detach().numpy()
+
+        # action_probs[:, :3] *= 0
+        # action_probs[:, 5] *= 0.20
+        # action_probs = softmax(action_probs, axis=1)
+
         choices = []
         for i in range(action_probs.shape[0]):
             choice = np.random.choice(action_probs.shape[1], p=action_probs[i])
+            # choice = np.argmax(action_probs[i])
             choices.append(choice)
         action = torch.tensor(choices, device=self.device).unsqueeze(0)
 
@@ -137,7 +167,20 @@ class RolloutGenerator(object):
         is the main API of this class.
         :args params: parameters as a single 1D np array
         :returns: minus cumulative reward
+
+        ##############################################
+        0 : cammina verso sinistra
+        1 : cammina verso sinistra
+        2 : jump verso sinistra
+        3 : nulla o annulla salto
+        4 : nulla o annulla salto
+        5 : jump verso alto
+        6 : cammina a destra
+        7 : cammina a destra
+        8 : jump verso destra
+        ##############################################
         """
+
         # copy params into the controller
         if params is not None:
             load_parameters(params, self.controller)
@@ -153,34 +196,57 @@ class RolloutGenerator(object):
 
         cumulative = 0
         i = 0
+
         while True:
             obs = self.transform(obs).unsqueeze(0).to(self.device)
 
-            np_obs = obs.squeeze().permute(1, 2, 0).detach().cpu().numpy()
-            # plt.imshow(np_obs)
-            # with torch.no_grad():
-            #     reconstruction = (
-            #         self.vae(obs)[0].squeeze().permute(1, 2, 0).detach().cpu().numpy()
-            #     )
+            # np_obs = obs.squeeze().permute(1, 2, 0).detach().cpu().numpy()
+            # #
+            with torch.no_grad():
+                # reconstruction = (
+                # self.vae(obs)[0].squeeze().permute(1, 2, 0).detach().cpu().numpy()
+                # )
+
+                reconstruction = self.vae(obs)[0]
+
+            action, hidden = self.get_action_and_transition(reconstruction, hidden)
 
             # f, axarr = plt.subplots(2)
-            # plt.imshow(np_obs)
+            # axarr[0].imshow(np_obs)
             # axarr[1].imshow(reconstruction)
-            # plt.show()
-            # plt.pause(0.001)
-
-            action, hidden = self.get_action_and_transition(obs, hidden)
-
-            # print(action)
+            # axarr[0].text(32, 10, str(action), fontsize=15)
+            # f.savefig(
+            #     get_env("IMG_CONTROLLER")
+            #     + "/"
+            #     + f"{os.getpid()}".zfill(8)
+            #     + "_"
+            #     + f"{self.rollout_count}".zfill(3)
+            #     + "_"
+            #     + f"{i}".zfill(5)
+            #     + ".png"
+            # )
+            # plt.close(f)
 
             obs, reward, done, _ = self.env.step(action)
+
+            won = reward == 10
+            if won:
+                print("I won a run! Totally by chance...")
 
             if render:
                 self.env.render()
 
+            # if not won:
+            #     if action < 3:
+            #         reward -= 0.5
+
             cumulative += reward
             if done or i > self.time_limit:
+                if not won:
+                    print("Lost run")
+                self.rollout_count += 1
                 return -cumulative
+
             i += 1
 
 
@@ -295,6 +361,7 @@ class ControllerPipeline(object):
         if exists(ctrl_file):
             state = torch.load(ctrl_file, map_location={"cuda:0": "cpu"})
             cur_best = -state["reward"]
+
             self.controller.load_state_dict(state["state_dict"])
             print("Previous best was {}...".format(-cur_best))
 
@@ -305,13 +372,9 @@ class ControllerPipeline(object):
 
         epoch = 0
         log_step = 3  # 3
-        ###################################
-        foo_count = 0
-        while True:  # not es.stop():
-            # foo_count += 1
-            # if foo_count > 10:
-            #     break
-            ######################################
+
+        while not es.stop():
+
             if cur_best is not None and -cur_best > self.target_return:
                 print("Already better than target, breaking...")
                 break
@@ -344,6 +407,8 @@ class ControllerPipeline(object):
             if epoch % log_step == log_step - 1:
                 best_params, best, std_best = self.evaluate(solutions, r_list)
                 print("Current evaluation: {}".format(best))
+                print("cur best: ", cur_best, "best: ", best)
+
                 if not cur_best or cur_best > best:
                     cur_best = best
                     print(
