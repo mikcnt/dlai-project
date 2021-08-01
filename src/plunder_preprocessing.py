@@ -15,9 +15,10 @@ color2_position = [67, 697]
 color1 = hsv[color1_position[0], color1_position[1], :]
 color2 = hsv[color2_position[0], color2_position[1], :]
 
+# print(color1, color2)
+
 lower_brown = np.array([10, 100, 20])
 upper_brown = np.array([20, 255, 200])
-
 
 color1[1] = 0
 color1[2] = 0
