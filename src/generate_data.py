@@ -67,7 +67,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dir", type=str, help="Where to place rollouts", default="../all_rollouts/"
     )
-    parser.add_argument("--seed", type=int, help="Random seed for environment", default=42)
+    parser.add_argument(
+        "--seed", type=int, help="Random seed for environment", default=42
+    )
     args = parser.parse_args()
 
     random.seed(args.seed)

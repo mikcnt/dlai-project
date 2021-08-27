@@ -17,10 +17,7 @@ from src.plumber_standardize_colors import standardize_colors
 
 class GameSceneDataset(Dataset):
     def __init__(
-        self,
-        name: ValueNode,
-        path: ValueNode,
-        std_colors: bool,
+        self, name: ValueNode, path: ValueNode, std_colors: bool,
     ):
         super().__init__()
         self.path = path
@@ -39,10 +36,7 @@ class GameSceneDataset(Dataset):
         if self.std_colors:
             obs_np = standardize_colors(obs_np)
 
-        obs = (
-            torch.as_tensor(obs_np, dtype=torch.float32).permute(2, 0, 1)
-            / 255
-        )
+        obs = torch.as_tensor(obs_np, dtype=torch.float32).permute(2, 0, 1) / 255
         return obs
 
     def __repr__(self) -> str:
@@ -51,10 +45,7 @@ class GameSceneDataset(Dataset):
 
 class GameEpisodeDataset(Dataset):
     def __init__(
-        self,
-        name: ValueNode,
-        path: ValueNode,
-        seq_len: int = 32,
+        self, name: ValueNode, path: ValueNode, seq_len: int = 32,
     ):
         super().__init__()
         self.path = path
