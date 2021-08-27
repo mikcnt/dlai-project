@@ -35,9 +35,9 @@ def standardize_colors(img):
     ]
     # enemy -> red
     standardized_img[np.where((standardized_img == enemy_ship_color).all(axis=2))] = [
-        0,
-        0,
         255,
+        0,
+        0,
     ]
 
     #  change enemy ship model color
