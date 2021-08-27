@@ -12,6 +12,7 @@ from omegaconf import ValueNode
 from torch.utils.data import Dataset
 
 from src.common.utils import PROJECT_ROOT
+from src.plumber_standardize_colors import standardize_colors
 
 
 class GameSceneDataset(Dataset):
@@ -19,10 +20,12 @@ class GameSceneDataset(Dataset):
         self,
         name: ValueNode,
         path: ValueNode,
+        std_colors: bool,
     ):
         super().__init__()
         self.path = path
         self.name = name
+        self.std_colors = std_colors
         self.fpaths = sorted(glob.glob(os.path.join(path, "rollout_*/img_*.npz")))
         self.indices = np.arange(0, len(self.fpaths))
 
@@ -31,8 +34,13 @@ class GameSceneDataset(Dataset):
 
     def __getitem__(self, idx: int) -> torch.Tensor:
         npz = np.load(self.fpaths[self.indices[idx]])
+        obs_np = npz["observations"]
+
+        if self.std_colors:
+            obs_np = standardize_colors(obs_np)
+
         obs = (
-            torch.as_tensor(npz["observations"], dtype=torch.float32).permute(2, 0, 1)
+            torch.as_tensor(obs_np, dtype=torch.float32).permute(2, 0, 1)
             / 255
         )
         return obs

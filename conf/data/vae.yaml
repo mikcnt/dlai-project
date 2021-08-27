@@ -6,16 +6,19 @@ datamodule:
       _target_: src.pl_data.dataset.GameSceneDataset
       name: YourTrainDatasetName
       path: ${oc.env:YOUR_TRAIN_DATASET_PATH}
+      std_colors: True
 
     val:
       - _target_: src.pl_data.dataset.GameSceneDataset
         name: YourValDatasetName
         path: ${oc.env:YOUR_VAL_DATASET_PATH}
+        std_colors: True
 
     test:
       - _target_: src.pl_data.dataset.GameSceneDataset
         name: YourTestDatasetName
         path: ${oc.env:YOUR_TEST_DATASET_PATH}
+        std_colors: True
 
   num_workers:
     train: 8
