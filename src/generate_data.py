@@ -32,7 +32,6 @@ def generate_data(rollouts, data_dir, seed):
         d_rollout = []
 
         t = 0
-        env.seed()
         while True:
             action = a_rollout[t]
 
@@ -63,8 +62,6 @@ def generate_data(rollouts, data_dir, seed):
 
 
 if __name__ == "__main__":
-    random.seed(42)
-    np.random.seed(42)
     parser = argparse.ArgumentParser()
     parser.add_argument("--rollouts", type=int, help="Number of rollouts", default=1000)
     parser.add_argument(
@@ -72,5 +69,8 @@ if __name__ == "__main__":
     )
     parser.add_argument("--seed", type=int, help="Random seed for environment", default=42)
     args = parser.parse_args()
+
+    random.seed(args.seed)
+    np.random.seed(args.seed)
     os.makedirs(args.dir, exist_ok=True)
     generate_data(args.rollouts, args.dir, args.seed)
