@@ -217,6 +217,7 @@ fabric.properties
 *.ckpt
 
 # Data
+data
 *.npz
 
 # Wandb logs
