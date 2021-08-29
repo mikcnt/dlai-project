@@ -12,8 +12,6 @@ def generate_data(rollouts, data_dir, seed):
 
     env = gym.make(
         "procgen:procgen-plunder-v0",
-        start_level=seed,
-        num_levels=1,
         use_backgrounds=False,
         restrict_themes=True,
         use_monochrome_assets=True,
