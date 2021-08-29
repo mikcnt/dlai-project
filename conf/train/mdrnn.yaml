@@ -16,7 +16,7 @@ monitor_metric: 'val_loss'
 monitor_metric_mode: 'min'
 
 early_stopping:
-  patience: 30
+  patience: 10
   verbose: False
 
 model_checkpoints:
