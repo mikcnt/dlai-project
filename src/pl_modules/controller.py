@@ -32,37 +32,19 @@ from src.pl_modules.controller_utils import (
 
 from src.pl_modules.mdrnn import MDRNNCell
 from src.pl_modules.vae import VaeModel
+from src.plumber_standardize_colors import standardize_colors
 
 
 class Controller(nn.Module):
-    def __init__(self, latents, recurrents, actions, action_space=9):  # action_space=15
+    def __init__(self, latents, recurrents, actions, action_space=15):
         super().__init__()
-        # self.fc = nn.Linear(in_features=latents + recurrents, out_features=actions)
+        self.fc = nn.Linear(in_features=latents + recurrents, out_features=action_space)
         self.softmax = nn.Softmax(dim=1)
-        # self.fc = nn.Linear(in_features=latents + recurrents, out_features=action_space)
 
-        self.fc = nn.Sequential(
-            *[
-                nn.Conv2d(3, 1, 3, 2, 1),
-                nn.Conv2d(1, 1, 3, 2, 1),
-                nn.Conv2d(1, 1, 3, 2, 1),
-                nn.Conv2d(1, 1, 3, 2, 1),
-                nn.Flatten(),
-                nn.Linear(4 * 4, 9),
-            ]
-        )
-
-        # self.relu = nn.ReLU()
-
-    def forward(self, inputs):
-        # cat_in = torch.cat(inputs, dim=1)
-        # action_probs = self.softmax(self.fc(cat_in))
-
-        action_probs = self.softmax(self.fc(inputs))
-
+    def forward(self, *inputs):
+        cat_in = torch.cat(inputs, dim=1)
+        action_probs = self.softmax(self.fc(cat_in))
         return action_probs
-
-        # return self.fc(cat_in)
 
 
 class RolloutGenerator(object):
@@ -89,7 +71,7 @@ class RolloutGenerator(object):
         self.transform = transforms.Compose(
             [
                 transforms.ToPILImage(),
-                transforms.Resize((cfg.model.RED_SIZE, cfg.model.RED_SIZE)),
+                # transforms.Resize((cfg.model.RED_SIZE, cfg.model.RED_SIZE)),
                 transforms.ToTensor(),
             ]
         )
@@ -115,14 +97,20 @@ class RolloutGenerator(object):
         # load Controller if it was previously saved
         if exists(cfg.model.controller_checkpoint_path):
             ctrl_state = torch.load(
-                cfg.model.controller_checkpoint_path,
-                map_location=device,
+                cfg.model.controller_checkpoint_path, map_location=device,
             )
             print("Loading Controller with reward {}".format(ctrl_state["reward"]))
             self.controller.load_state_dict(ctrl_state["state_dict"])
 
         # instantiate environment
-        self.env = gym.make("procgen:procgen-coinrun-v0")
+        self.env = gym.make(
+            "procgen:procgen-plunder-v0",
+            start_level=42,
+            num_levels=1,
+            use_backgrounds=False,
+            restrict_themes=True,
+            use_monochrome_assets=True,
+        )
 
         self.device = device
         self.time_limit = time_limit
@@ -140,16 +128,9 @@ class RolloutGenerator(object):
         """
         _, latent_mu, _ = self.vae(obs)
 
-        # action = self.controller(latent_mu, hidden[0])
-
-        # action_probs = self.controller(latent_mu, hidden[0])
-        action_probs = self.controller(obs)
+        action_probs = self.controller(latent_mu, hidden[0])
 
         action_probs = action_probs.cpu().detach().numpy()
-
-        # action_probs[:, :3] *= 0
-        # action_probs[:, 5] *= 0.20
-        # action_probs = softmax(action_probs, axis=1)
 
         choices = []
         for i in range(action_probs.shape[0]):
@@ -186,6 +167,7 @@ class RolloutGenerator(object):
             load_parameters(params, self.controller)
 
         obs = self.env.reset()
+        obs = standardize_colors(obs)
 
         # This first render is required!
         self.env.render()
@@ -198,19 +180,23 @@ class RolloutGenerator(object):
         i = 0
 
         while True:
+            np_obs = obs.copy()
+            # plt.imsave("/home/michele/projects/dlai-project/data/test_reconstruction/prova.png", np_obs)
+            # exit()
             obs = self.transform(obs).unsqueeze(0).to(self.device)
-
-            # np_obs = obs.squeeze().permute(1, 2, 0).detach().cpu().numpy()
-            # #
             with torch.no_grad():
-                # reconstruction = (
-                # self.vae(obs)[0].squeeze().permute(1, 2, 0).detach().cpu().numpy()
-                # )
-
                 reconstruction = self.vae(obs)[0]
 
             action, hidden = self.get_action_and_transition(reconstruction, hidden)
 
+            obs, reward, done, _ = self.env.step(action)
+
+            obs = standardize_colors(obs)
+
+            ################################
+            # reconstruction = (
+            #     reconstruction.squeeze().permute(1, 2, 0).cpu().detach().numpy()
+            # )
             # f, axarr = plt.subplots(2)
             # axarr[0].imshow(np_obs)
             # axarr[1].imshow(reconstruction)
@@ -226,24 +212,13 @@ class RolloutGenerator(object):
             #     + ".png"
             # )
             # plt.close(f)
-
-            obs, reward, done, _ = self.env.step(action)
-
-            won = reward == 10
-            if won:
-                print("I won a run! Totally by chance...")
+            ################################
 
             if render:
                 self.env.render()
 
-            # if not won:
-            #     if action < 3:
-            #         reward -= 0.5
-
             cumulative += reward
             if done or i > self.time_limit:
-                if not won:
-                    print("Lost run")
                 self.rollout_count += 1
                 return -cumulative
 
