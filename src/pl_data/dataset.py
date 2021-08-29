@@ -45,13 +45,14 @@ class GameSceneDataset(Dataset):
 
 class GameEpisodeDataset(Dataset):
     def __init__(
-        self, name: ValueNode, path: ValueNode, seq_len: int = 32,
+        self, name: ValueNode, path: ValueNode, std_colors: bool, seq_len: int = 32,
     ):
         super().__init__()
         self.path = path
         self.name = name
         self.fpaths = sorted(glob.glob(os.path.join(path, "rollout_*/rollout_*.npz")))
         self.indices = np.arange(0, len(self.fpaths))
+        self.std_colors = std_colors
         self.seq_len = seq_len
 
     def __len__(self) -> int:
@@ -62,7 +63,13 @@ class GameEpisodeDataset(Dataset):
         npz = np.load(self.fpaths[self.indices[idx]])
 
         # observations and next observations
-        obs = npz["observations"] / 255
+        obs = npz["observations"]
+
+        if self.std_colors:
+            for i in range(obs.shape[0]):
+                obs[i, ...] = standardize_colors(obs[i, ...])
+
+        obs = obs / 255
         roll_dim, H, W, C = obs.shape
         n_seq = (
             roll_dim // self.seq_len
@@ -124,9 +131,11 @@ class MyDataset(Dataset):
 
 @hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="default")
 def main(cfg: omegaconf.DictConfig):
+    print(cfg)
     dataset: GameEpisodeDataset = hydra.utils.instantiate(
         cfg.data.datamodule.datasets.train, _recursive_=False
     )
+    print(dataset[0]["obs"].shape)
     return dataset
 
 
