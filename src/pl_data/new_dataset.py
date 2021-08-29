@@ -10,14 +10,14 @@ from src.pl_data.dataset import GameEpisodeDataset
 name = "."
 
 
-def generate_mdrnn_data(split_part, std_colors=True):
+def generate_mdrnn_data(split_part):
     assert split_part in ["train", "val", "test"]
 
     old_path = get_env(f"YOUR_{split_part.upper()}_DATASET_PATH")
     new_path = old_path.replace(split_part, "new_" + split_part)
     os.makedirs(new_path, exist_ok=True)
 
-    dataset = GameEpisodeDataset(name=name, path=old_path, std_colors=std_colors)
+    dataset = GameEpisodeDataset(name=name, path=old_path)
     loader = CustomDataLoader(dataset, batch_size=32, drop_last=True)
 
     for i, batch in enumerate(tqdm(loader)):

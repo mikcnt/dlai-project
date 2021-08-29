@@ -6,8 +6,10 @@ import random
 import gym
 import numpy as np
 
+from src.plumber_standardize_colors import standardize_colors
 
-def generate_data(rollouts, data_dir, seed):
+
+def generate_data(rollouts, data_dir, std_colors=True):
     """Generates data"""
 
     env = gym.make(
@@ -34,6 +36,10 @@ def generate_data(rollouts, data_dir, seed):
             action = a_rollout[t]
 
             s, r, done, _ = env.step(action)
+
+            if std_colors:
+                s = standardize_colors(s)
+
             # save single move frame
             np.savez(
                 join(data_dir, f"rollout_{i}/img_{t}"),
