@@ -42,8 +42,8 @@ def standardize_colors(img):
 
     #  change enemy ship model color
     #  only if enemy ship color == frame of the enemy ship model color
-    if (img[63, 0, :] == enemy_ship_color).all():
-        standardized_img[51:, 0:13, :] = enemy_ship_color
-        standardized_img[55:60, 2:11, :] = [0, 0, 255]
+    # if (img[63, 0, :] == enemy_ship_color).all():
+    standardized_img[51:, 0:13, :] = [255, 127, 63]  # enemy_ship_color
+    standardized_img[55:60, 2:11, :] = [255, 0, 0]
 
     return standardized_img
