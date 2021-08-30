@@ -134,8 +134,8 @@ class RolloutGenerator(object):
 
         choices = []
         for i in range(action_probs.shape[0]):
-            choice = np.random.choice(action_probs.shape[1], p=action_probs[i])
-            # choice = np.argmax(action_probs[i])
+            # choice = np.random.choice(action_probs.shape[1], p=action_probs[i])
+            choice = np.argmax(action_probs[i])
             choices.append(choice)
         action = torch.tensor(choices, device=self.device).unsqueeze(0)
 
@@ -200,7 +200,6 @@ class RolloutGenerator(object):
             # f, axarr = plt.subplots(2)
             # axarr[0].imshow(np_obs)
             # axarr[1].imshow(reconstruction)
-            # axarr[0].text(32, 10, str(action), fontsize=15)
             # f.savefig(
             #     get_env("IMG_CONTROLLER")
             #     + "/"
@@ -255,7 +254,7 @@ class ControllerPipeline(object):
 
         # Max number of workers
         self.num_workers = min(self.max_workers, self.n_samples * self.pop_size)
-        self.time_limit = 1000
+        self.time_limit = 100000
 
         # Define queues and start workers
         self.p_queue = Queue()
@@ -348,7 +347,7 @@ class ControllerPipeline(object):
         epoch = 0
         log_step = 3  # 3
 
-        while not es.stop():
+        while True:
 
             if cur_best is not None and -cur_best > self.target_return:
                 print("Already better than target, breaking...")

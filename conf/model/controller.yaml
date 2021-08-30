@@ -2,7 +2,7 @@ _target_: src.pl_modules.mdrnn.MDRNNModel
 
 n_samples: 4
 pop_size: 4 # 4
-target_return: 950
+target_return: 9500
 max_workers: 4 # 4
 
 ASIZE: 1
