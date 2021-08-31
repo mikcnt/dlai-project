@@ -67,7 +67,7 @@ def generate_data(rollouts, data_dir, std_colors, distribution_mode):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--rollouts", type=int, help="Number of rollouts", default=50)
+    parser.add_argument("--rollouts", type=int, help="Number of rollouts", default=1000)
     parser.add_argument(
         "--dir", type=str, help="Where to place rollouts", default="../all_rollouts/"
     )
