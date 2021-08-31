@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def standardize_colors(img):
+def standardize_colors(img, distribution_mode="hard"):
     """Standardize enemy and ally ships colors for Procgen Plumber.
     This function will only work with 64x64x3 images, and its meant to be used
     with frames without background and using monochrome assets.
@@ -20,7 +20,11 @@ def standardize_colors(img):
 
     # ally ship can move in the bottom center angle, in a small rectangle
     # at the right of the enemy ship model
-    ally_ship_area = img[57:61, 13:, :]
+    if distribution_mode == "hard":
+        ally_ship_area = img[57:61, 13:, :]
+    elif distribution_mode == "easy":
+        ally_ship_area = img[55:61, 14:, :]
+
     # the ship is the only small non-black rectangle (!= 0)
     # to select the color, we just take any pixel color
     ally_ship_color = ally_ship_area[ally_ship_area != 0][:3]
@@ -41,9 +45,11 @@ def standardize_colors(img):
     ]
 
     #  change enemy ship model color
-    #  only if enemy ship color == frame of the enemy ship model color
-    # if (img[63, 0, :] == enemy_ship_color).all():
-    standardized_img[51:, 0:13, :] = [255, 127, 63]  # enemy_ship_color
-    standardized_img[55:60, 2:11, :] = [255, 0, 0]
+    if distribution_mode == "hard":
+        standardized_img[51:, 0:13, :] = [255, 127, 63]
+        standardized_img[55:60, 2:11, :] = [255, 0, 0]
+    elif distribution_mode == "easy":
+        standardized_img[51:, 0:13, :] = [255, 127, 63]
+        standardized_img[53:62, 0:14, :] = [255, 0, 0]
 
     return standardized_img

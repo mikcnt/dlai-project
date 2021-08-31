@@ -1,23 +1,22 @@
 import argparse
 import os
-from os.path import join, exists
+from os.path import join
 import random
 
 import gym
 import numpy as np
 
-from src.plumber_standardize_colors import standardize_colors
+from src.plunder_standardize_colors import standardize_colors
 
 
-def generate_data(rollouts, data_dir, std_colors=True):
+def generate_data(rollouts, data_dir, std_colors, distribution_mode):
     """Generates data"""
-
     env = gym.make(
         "procgen:procgen-plunder-v0",
         use_backgrounds=False,
         restrict_themes=True,
         use_monochrome_assets=True,
-        distribution_mode="easy",
+        distribution_mode=distribution_mode,
     )
     seq_len = 1000
 
@@ -39,7 +38,7 @@ def generate_data(rollouts, data_dir, std_colors=True):
             s, r, done, _ = env.step(action)
 
             if std_colors:
-                s = standardize_colors(s)
+                s = standardize_colors(s, distribution_mode=distribution_mode)
 
             # save single move frame
             np.savez(
@@ -68,16 +67,26 @@ def generate_data(rollouts, data_dir, std_colors=True):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--rollouts", type=int, help="Number of rollouts", default=1000)
+    parser.add_argument("--rollouts", type=int, help="Number of rollouts", default=50)
     parser.add_argument(
         "--dir", type=str, help="Where to place rollouts", default="../all_rollouts/"
     )
     parser.add_argument(
-        "--seed", type=int, help="Random seed for environment", default=42
+        "--std_colors",
+        default=True,
+        type=bool,
+        help="Standardization of the colors in the images",
     )
+    parser.add_argument(
+        "--distribution_mode",
+        type=str,
+        help="Distribution mode of the gym environment",
+        default="easy",
+    )
+
     args = parser.parse_args()
 
-    random.seed(args.seed)
-    np.random.seed(args.seed)
+    random.seed(42)
+    np.random.seed(42)
     os.makedirs(args.dir, exist_ok=True)
-    generate_data(args.rollouts, args.dir, args.seed)
+    generate_data(args.rollouts, args.dir, args.std_colors, args.distribution_mode)

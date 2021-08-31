@@ -32,7 +32,7 @@ from src.pl_modules.controller_utils import (
 
 from src.pl_modules.mdrnn import MDRNNCell
 from src.pl_modules.vae import VaeModel
-from src.plumber_standardize_colors import standardize_colors
+from src.plunder_standardize_colors import standardize_colors
 
 
 class Controller(nn.Module):
