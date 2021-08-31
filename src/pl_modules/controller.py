@@ -97,7 +97,8 @@ class RolloutGenerator(object):
         # load Controller if it was previously saved
         if exists(cfg.model.controller_checkpoint_path):
             ctrl_state = torch.load(
-                cfg.model.controller_checkpoint_path, map_location=device,
+                cfg.model.controller_checkpoint_path,
+                map_location=device,
             )
             print("Loading Controller with reward {}".format(ctrl_state["reward"]))
             self.controller.load_state_dict(ctrl_state["state_dict"])
@@ -108,6 +109,7 @@ class RolloutGenerator(object):
             use_backgrounds=False,
             restrict_themes=True,
             use_monochrome_assets=True,
+            # distribution_mode="easy",
         )
 
         self.device = device

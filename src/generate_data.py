@@ -17,6 +17,7 @@ def generate_data(rollouts, data_dir, std_colors=True):
         use_backgrounds=False,
         restrict_themes=True,
         use_monochrome_assets=True,
+        distribution_mode="easy",
     )
     seq_len = 1000
 
