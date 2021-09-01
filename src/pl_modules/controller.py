@@ -3,6 +3,8 @@ import sys
 from os import mkdir, listdir, unlink, getpid
 from os.path import join, exists
 from time import sleep
+
+import PIL.Image
 import cma
 import gym
 import hydra
@@ -60,10 +62,11 @@ class RolloutGenerator(object):
     :attr time_limit: rollouts have a maximum of time_limit timesteps
     """
 
-    def __init__(self, cfg, device, time_limit):
+    def __init__(self, cfg, device, time_limit, render=False):
         """Build vae, rnn, controller and environment."""
 
         self.cfg = cfg
+        self.render = render
 
         self.rollout_count = 0
 
@@ -109,6 +112,9 @@ class RolloutGenerator(object):
             restrict_themes=True,
             use_monochrome_assets=True,
             distribution_mode="easy",
+            start_level=42,
+            num_levels=1,
+            render_mode="human" if self.render else "rgb_array",
         )
 
         self.device = device
@@ -133,32 +139,20 @@ class RolloutGenerator(object):
 
         choices = []
         for i in range(action_probs.shape[0]):
-            choice = np.random.choice(action_probs.shape[1], p=action_probs[i]) * 3
-            # choice = np.argmax(action_probs[i]) * 3
+            # choice = np.random.choice(action_probs.shape[1], p=action_probs[i]) * 3
+            choice = np.argmax(action_probs[i]) * 3
             choices.append(choice)
         action = torch.tensor(choices, device=self.device).unsqueeze(0)
 
         _, _, _, _, _, next_hidden = self.mdrnn(action, latent_mu, hidden)
         return action.squeeze().cpu().numpy(), next_hidden
 
-    def rollout(self, params, render=False):
+    def rollout(self, params):
         """Execute a rollout and returns minus cumulative reward.
         Load :params: into the controller and execute a single rollout. This
         is the main API of this class.
         :args params: parameters as a single 1D np array
         :returns: minus cumulative reward
-
-        ##############################################
-        0 : cammina verso sinistra
-        1 : cammina verso sinistra
-        2 : jump verso sinistra
-        3 : nulla o annulla salto
-        4 : nulla o annulla salto
-        5 : jump verso alto
-        6 : cammina a destra
-        7 : cammina a destra
-        8 : jump verso destra
-        ##############################################
         """
 
         # copy params into the controller
@@ -166,7 +160,7 @@ class RolloutGenerator(object):
             load_parameters(params, self.controller)
 
         obs = self.env.reset()
-        obs = standardize_colors(obs)
+        obs = standardize_colors(obs, distribution_mode="easy")
 
         # This first render is required!
         self.env.render()
@@ -181,15 +175,16 @@ class RolloutGenerator(object):
         while True:
             np_obs = obs.copy()
             obs = self.transform(obs).unsqueeze(0).to(self.device)
-            # with torch.no_grad():
-            #     reconstruction = self.vae(obs)[0]
+
+            if self.render:
+                with torch.no_grad():
+                    reconstruction = self.vae(obs)[0]
 
             action, hidden = self.get_action_and_transition(obs, hidden)
 
             obs, reward, done, _ = self.env.step(action)
 
-            obs = standardize_colors(obs)
-
+            obs = standardize_colors(obs, distribution_mode="easy")
             ################################
             # reconstruction = (
             #     reconstruction.squeeze().permute(1, 2, 0).cpu().detach().numpy()
@@ -210,8 +205,11 @@ class RolloutGenerator(object):
             # plt.close(f)
             ################################
 
-            if render:
+            if self.render:
                 self.env.render()
+                reconstruction = (
+                    reconstruction.squeeze().permute(1, 2, 0).cpu().detach().numpy()
+                )
 
             cumulative += reward
             if done or i > self.time_limit:
@@ -342,7 +340,7 @@ class ControllerPipeline(object):
         )
 
         epoch = 0
-        log_step = 3  # 3
+        log_step = 3
 
         while True:
 

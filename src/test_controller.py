@@ -1,40 +1,21 @@
 import gym
-import matplotlib.pyplot as plt
+import hydra
+import torch
+from omegaconf import DictConfig
 
-"""
-0: sinistra
-1: sinistra
-2: sinistra
-3: non fare niente
-4: non fare niente
-5: non fare niente
-6: destra
-7: destra
-8: destra
-9: spara
-"""
+from src.common.utils import PROJECT_ROOT
+from src.pl_modules.controller import RolloutGenerator
 
-[0, 3, 6, 9]
-action = 0
+
+@hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="controller")
+def main(cfg: DictConfig):
+    device = torch.device("cuda")
+    rollout_generator = RolloutGenerator(
+        cfg=cfg, device=device, time_limit=100000, render=True
+    )
+    cumulative = rollout_generator.rollout(params=None)
+    print(cumulative)
+
 
 if __name__ == "__main__":
-    distribution_mode = "easy"
-
-    env = gym.make(
-        "procgen:procgen-plunder-v0",
-        use_backgrounds=False,
-        restrict_themes=True,
-        use_monochrome_assets=True,
-        distribution_mode=distribution_mode,
-    )
-
-    i = 0
-    while True:
-        print(action)
-        obs, r, done, _ = env.step(action)
-
-        plt.imshow(obs)
-        plt.show()
-        if i == 10:
-            break
-        i += 1
+    main()

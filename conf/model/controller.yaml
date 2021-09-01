@@ -16,4 +16,4 @@ display: True
 
 vae_checkpoint_path: ${oc.env:PROJECT_ROOT}/checkpoints/vae/best.ckpt
 mdrnn_checkpoint_path: ${oc.env:PROJECT_ROOT}/checkpoints/mdrnn/best.ckpt
-controller_checkpoint_path: ${oc.env:PROJECT_ROOT}/controller/best.tar
+controller_checkpoint_path: ${oc.env:PROJECT_ROOT}/controller/ctrl/best.tar
