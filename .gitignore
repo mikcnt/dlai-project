@@ -217,6 +217,7 @@ fabric.properties
 *.ckpt
 
 # Data
+all_rollouts
 data
 *.npz
 

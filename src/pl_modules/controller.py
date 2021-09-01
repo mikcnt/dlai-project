@@ -36,7 +36,7 @@ from src.plunder_standardize_colors import standardize_colors
 
 
 class Controller(nn.Module):
-    def __init__(self, latents, recurrents, actions, action_space=15):
+    def __init__(self, latents, recurrents, actions, action_space=4):
         super().__init__()
         self.fc = nn.Linear(in_features=latents + recurrents, out_features=action_space)
         self.softmax = nn.Softmax(dim=1)
@@ -97,8 +97,7 @@ class RolloutGenerator(object):
         # load Controller if it was previously saved
         if exists(cfg.model.controller_checkpoint_path):
             ctrl_state = torch.load(
-                cfg.model.controller_checkpoint_path,
-                map_location=device,
+                cfg.model.controller_checkpoint_path, map_location=device,
             )
             print("Loading Controller with reward {}".format(ctrl_state["reward"]))
             self.controller.load_state_dict(ctrl_state["state_dict"])
@@ -109,7 +108,7 @@ class RolloutGenerator(object):
             use_backgrounds=False,
             restrict_themes=True,
             use_monochrome_assets=True,
-            # distribution_mode="easy",
+            distribution_mode="easy",
         )
 
         self.device = device
@@ -134,8 +133,8 @@ class RolloutGenerator(object):
 
         choices = []
         for i in range(action_probs.shape[0]):
-            # choice = np.random.choice(action_probs.shape[1], p=action_probs[i])
-            choice = np.argmax(action_probs[i])
+            choice = np.random.choice(action_probs.shape[1], p=action_probs[i]) * 3
+            # choice = np.argmax(action_probs[i]) * 3
             choices.append(choice)
         action = torch.tensor(choices, device=self.device).unsqueeze(0)
 
@@ -181,13 +180,11 @@ class RolloutGenerator(object):
 
         while True:
             np_obs = obs.copy()
-            # plt.imsave("/home/michele/projects/dlai-project/data/test_reconstruction/prova.png", np_obs)
-            # exit()
             obs = self.transform(obs).unsqueeze(0).to(self.device)
-            with torch.no_grad():
-                reconstruction = self.vae(obs)[0]
+            # with torch.no_grad():
+            #     reconstruction = self.vae(obs)[0]
 
-            action, hidden = self.get_action_and_transition(reconstruction, hidden)
+            action, hidden = self.get_action_and_transition(obs, hidden)
 
             obs, reward, done, _ = self.env.step(action)
 
