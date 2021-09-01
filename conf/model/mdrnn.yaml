@@ -8,13 +8,13 @@ _target_: src.pl_modules.mdrnn.MDRNNModel
 #red_size: 64
 #seq_len: 32
 
-ASIZE: 1
-LSIZE: 32
-RSIZE: 256
-RED_SIZE: 64
-SIZE: 64
-SEQ_LEN: 32
-BSIZE: 32
+ASIZE: 1      # Action size: 1 is a scalar, n is an n-tuple.
+LSIZE: 32     # Latent Size
+RSIZE: 256    # Number of hidden units
+RED_SIZE: 64  # 
+SIZE: 64      # Image shape is SIZE x SIZE
+SEQ_LEN: 32   # Sequence length
+BSIZE: 32     # Batch size
 
 
 vae_checkpoint_path: ${oc.env:PROJECT_ROOT}/checkpoints/vae/best.ckpt

@@ -5,11 +5,11 @@ pop_size: 4 # 4
 target_return: 9500
 max_workers: 4 # 4
 
-ASIZE: 1
-LSIZE: 32
-RSIZE: 256
-RED_SIZE: 64
-SIZE: 64
+ASIZE: 1      # Action size: 1 is a scalar, n is an n-tuple.     
+LSIZE: 32     # Latent Size
+RSIZE: 256    # Number of hidden units
+RED_SIZE: 64  # 
+SIZE: 64      # Image shape is SIZE x SIZE
 
 controller_path: ${oc.env:PROJECT_ROOT}/controller
 display: True
