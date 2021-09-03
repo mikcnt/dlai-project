@@ -1,6 +1,7 @@
 from collections import OrderedDict
-import torch
 
+import numpy as np
+import torch
 
 
 def rnn_adjust_parameters(state_dict) -> OrderedDict:
@@ -46,3 +47,31 @@ def load_parameters(params, controller):
 
     for p, p_0 in zip(controller.parameters(), params):
         p.data.copy_(p_0)
+
+
+def to_log_cma(es):
+    to_log = {}
+
+    # rewards (best, worst, mean, std)
+    to_log["best_performance"] = - min(es.fit.fit)
+    to_log["worst_performance"] = - max(es.fit.fit)
+    to_log["mean_performance"] = - np.mean(es.fit.fit)
+    to_log["std_performance"] = - np.std(es.fit.fit)
+    to_log["performance_mean_plus_std"] = (
+        to_log["mean_performance"] + to_log["std_performance"]
+    )
+    to_log["performance_mean_minus_std"] = (
+        to_log["mean_performance"] - to_log["std_performance"]
+    )
+
+    # iterations and number of evaluations
+    to_log["iteration"] = es.countiter
+    to_log["function_evals"] = es.countevals
+
+    # misc
+    to_log["axis_ratio"] = es.D.max() / es.D.min()
+    to_log["sigma"] = es.sigma
+    to_log["min_max"] = es.sigma * min(es.sigma_vec * es.dC ** 0.5)
+    to_log["std"] = es.sigma * max(es.sigma_vec * es.dC ** 0.5)
+
+    return to_log

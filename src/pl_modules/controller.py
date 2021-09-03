@@ -13,6 +13,9 @@ from numpy.core.fromnumeric import argmax
 from omegaconf import DictConfig
 from torchvision.transforms import transforms
 from tqdm import tqdm
+import pprint
+
+import wandb
 
 from src.common.utils import get_env
 from scipy.special import softmax
@@ -29,6 +32,7 @@ from src.pl_modules.controller_utils import (
     rnn_adjust_parameters,
     load_parameters,
     flatten_parameters,
+    to_log_cma,
 )
 
 
@@ -112,8 +116,9 @@ class RolloutGenerator(object):
             restrict_themes=True,
             use_monochrome_assets=True,
             distribution_mode="easy",
-            start_level=42,
-            num_levels=1,
+            start_level=0,
+            num_levels=20,
+            use_sequential_levels=True,
             render_mode="human" if self.render else "rgb_array",
         )
 
@@ -262,7 +267,7 @@ class ControllerPipeline(object):
                 args=(self.p_queue, self.r_queue, self.e_queue, p_index),
             ).start()
 
-    def evaluate(self, solutions, results, rollouts=100):
+    def evaluate(self, solutions, results, rollouts=5):
         """Give current controller evaluation.
         Evaluation is minus the cumulated reward averaged over rollout runs.
         :args solutions: CMA set of solutions
@@ -323,6 +328,7 @@ class ControllerPipeline(object):
                     r_queue.put((s_id, r_gen.rollout(params)))
 
     def optimize(self):
+        wandb.init(**self.cfg.logging)
         # define current best and load parameters
         cur_best = None
         ctrl_file = join(self.ctrl_dir, "best.tar")
@@ -340,11 +346,10 @@ class ControllerPipeline(object):
         )
 
         epoch = 0
-        log_step = 3
+        log_step = 16
 
         while True:
-
-            if cur_best is not None and -cur_best > self.target_return:
+            if cur_best is not None and -cur_best >= self.target_return:
                 print("Already better than target, breaking...")
                 break
 
@@ -370,11 +375,16 @@ class ControllerPipeline(object):
                 pbar.close()
 
             es.tell(solutions, r_list)
+
             es.disp()
+            to_log = to_log_cma(es)
 
             # evaluation and saving
             if epoch % log_step == log_step - 1:
                 best_params, best, std_best = self.evaluate(solutions, r_list)
+                to_log["evaluation_best"] = best
+                to_log["evaluation_std_best"] = std_best
+
                 print("Current evaluation: {}".format(best))
                 print("cur best: ", cur_best, "best: ", best)
 
@@ -400,12 +410,11 @@ class ControllerPipeline(object):
                     )
                     break
 
+            wandb.log(data=to_log, step=es.countiter)
             epoch += 1
 
         es.result_pretty()
         self.e_queue.put("EOP")
-
-        print(self.pop_size)
 
 
 @hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="controller")

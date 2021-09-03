@@ -1,12 +1,12 @@
 _target_: src.pl_modules.mdrnn.MDRNNModel
 
-n_samples: 4
-pop_size: 4 # 4
-target_return: 9500
-max_workers: 4 # 4
+n_samples: 16
+pop_size: 64
+target_return: 20
+max_workers: 4
 
 ASIZE: 1      # Action size: 1 is a scalar, n is an n-tuple.     
-LSIZE: 32     # Latent Size
+LSIZE: 64     # Latent Size
 RSIZE: 256    # Number of hidden units
 RED_SIZE: 64  # 
 SIZE: 64      # Image shape is SIZE x SIZE
