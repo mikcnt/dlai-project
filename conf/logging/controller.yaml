@@ -1,4 +1,3 @@
-project: world - models - controller
-entity: cool - boys
+project: world-models-controller
+entity: cool-boys
 mode: "online"
-group: "bho"
