@@ -4,15 +4,9 @@
 Codebase for the Deep Learning and Applied AI course project at Sapienza University of Rome (ay 2020/2021).
 This consists of a reimplementation of [World Models](https://worldmodels.github.io/), and its adaptation on Plunder, one of the environments from [Procgen Benchmark](https://openai.com/blog/procgen-benchmark/).
 
-[comment]: <> (![Controller run]&#40;readme_images/run.gif&#41;)
-
-
-<center>
 |    **Agent playing**   |
 |:-----------------------:|
 | ![Controller run](readme_images/run.gif)           |
-</center>
-
 
 ## Usage
 This implementation is based on Python 3.8. To install all the requirements:
