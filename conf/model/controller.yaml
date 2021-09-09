@@ -13,8 +13,6 @@ RED_SIZE: 64  #
 SIZE: 64      # Image shape is SIZE x SIZE
 
 controller_path: ${oc.env:PROJECT_ROOT}/controller
-display: True
-
 vae_checkpoint_path: ${oc.env:PROJECT_ROOT}/checkpoints/vae/best.ckpt
 mdrnn_checkpoint_path: ${oc.env:PROJECT_ROOT}/checkpoints/mdrnn/best.ckpt
 controller_checkpoint_path: ${oc.env:PROJECT_ROOT}/controller/ctrl/best.tar
