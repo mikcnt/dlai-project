@@ -15,7 +15,7 @@ from src.common.utils import PROJECT_ROOT
 
 
 class Encoder(nn.Module):
-    def __init__(self, img_channels, latent_size):
+    def __init__(self, img_channels: int, latent_size: int) -> None:
         super().__init__()
         self.latent_size = latent_size
         self.img_channels = img_channels
@@ -37,7 +37,7 @@ class Encoder(nn.Module):
         self.fc_logsigma = nn.Linear(in_features=2 * 2 * 256, out_features=latent_size)
         self.relu = nn.ReLU()
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         x = self.relu(self.conv1(x))
         x = self.relu(self.conv2(x))
         x = self.relu(self.conv3(x))
@@ -51,7 +51,7 @@ class Encoder(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, img_channels, latent_size):
+    def __init__(self, img_channels: int, latent_size: int) -> None:
         super().__init__()
         self.latent_size = latent_size
         self.img_channels = img_channels
@@ -71,7 +71,7 @@ class Decoder(nn.Module):
         )
         self.relu = nn.ReLU()
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.relu(self.fc1(x))
         x = x.unsqueeze(-1).unsqueeze(-1)
         x = self.relu(self.deconv1(x))
@@ -82,12 +82,14 @@ class Decoder(nn.Module):
 
 
 class VAE(nn.Module):
-    def __init__(self, img_channels, latent_size):
+    def __init__(self, img_channels: int, latent_size: int) -> None:
         super().__init__()
         self.encoder = Encoder(img_channels=img_channels, latent_size=latent_size)
         self.decoder = Decoder(img_channels=img_channels, latent_size=latent_size)
 
-    def forward(self, x):
+    def forward(
+        self, x: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         mu, logsigma = self.encoder(x)
         sigma = logsigma.exp()
         eps = torch.randn_like(sigma)
@@ -105,7 +107,13 @@ class VaeModel(pl.LightningModule):
 
         self.count = 0
 
-    def loss_function(self, recon_x, x, mu, logsigma):
+    def loss_function(
+        self,
+        recon_x: torch.Tensor,
+        x: torch.Tensor,
+        mu: torch.Tensor,
+        logsigma: torch.Tensor,
+    ) -> Dict[str, torch.Tensor]:
         """VAE loss function"""
         BCE = F.mse_loss(recon_x, x, size_average=False)
 
@@ -145,7 +153,7 @@ class VaeModel(pl.LightningModule):
         else:
             return []
 
-    def forward(self, batch, **kwargs) -> Dict[str, torch.Tensor]:
+    def forward(self, batch: torch.Tensor, **kwargs) -> Dict[str, torch.Tensor]:
         """
         Method for the forward pass.
         'training_step', 'validation_step' and 'test_step' should call
@@ -155,13 +163,13 @@ class VaeModel(pl.LightningModule):
         """
         return self.model(batch)
 
-    def step(self, batch: Any, batch_idx: int):
+    def step(self, batch: torch.Tensor, batch_idx: int) -> Dict[str, Any]:
         recon_batch, mu, logvar = self(batch)
         losses = self.loss_function(recon_batch, batch, mu, logvar)
 
         return {"recon_batch": recon_batch, "losses": losses}
 
-    def training_step(self, batch: Any, batch_idx: int) -> torch.Tensor:
+    def training_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
         losses = self.step(batch, batch_idx)["losses"]
         recon_loss = losses["reconstruction_loss"]
         cont_loss = losses["continuity_loss"]
@@ -177,7 +185,9 @@ class VaeModel(pl.LightningModule):
         )
         return train_loss
 
-    def validation_step(self, batch: Any, batch_idx: int) -> Dict[str, torch.Tensor]:
+    def validation_step(
+        self, batch: torch.Tensor, batch_idx: int
+    ) -> Dict[str, torch.Tensor]:
         output = self.step(batch, batch_idx)
         recon_batch = output["recon_batch"]
         images = self.get_image_examples(batch, recon_batch)
@@ -211,7 +221,7 @@ class VaeModel(pl.LightningModule):
 
         self.logger.experiment.log({f"images_{self.current_epoch}": images})
 
-    def test_step(self, batch: Any, batch_idx: int) -> torch.Tensor:
+    def test_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
         losses = self.step(batch, batch_idx)["losses"]
         test_loss = losses["reconstruction_loss"] + losses["continuity_loss"]
         self.log_dict({"test_loss": test_loss},)

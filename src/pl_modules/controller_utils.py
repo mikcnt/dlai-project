@@ -1,17 +1,20 @@
 from collections import OrderedDict
+from typing import List, Dict
 
+import cma
 import numpy as np
 import torch
+from torch import nn
 
 
-def rnn_adjust_parameters(state_dict) -> OrderedDict:
+def rnn_adjust_parameters(state_dict: OrderedDict[str, torch.Tensor]) -> OrderedDict:
     state_dict = {
         k.replace("model.", ""): v for k, v in state_dict.items() if "vae" not in k
     }
     return OrderedDict({k.strip("_l0"): v for k, v in state_dict.items()})
 
 
-def flatten_parameters(params):
+def flatten_parameters(params: torch.Tensor) -> np.ndarray:
     """Flattening parameters.
     :args params: generator of parameters (as returned by module.parameters())
     :returns: flattened parameters (i.e. one tensor of dimension 1 with all
@@ -20,7 +23,9 @@ def flatten_parameters(params):
     return torch.cat([p.detach().view(-1) for p in params], dim=0).cpu().numpy()
 
 
-def unflatten_parameters(params, example, device):
+def unflatten_parameters(
+    params: np.ndarray, example: torch.Tensor, device: str
+) -> List[torch.Tensor]:
     """Unflatten parameters.
     :args params: parameters as a single 1D np array
     :args example: generator of parameters (as returned by module.parameters()),
@@ -37,7 +42,7 @@ def unflatten_parameters(params, example, device):
     return unflattened
 
 
-def load_parameters(params, controller):
+def load_parameters(params: List[torch.Tensor], controller: nn.Module) -> None:
     """Load flattened parameters into controller.
     :args params: parameters as a single 1D np array
     :args controller: module in which params is loaded
@@ -49,14 +54,14 @@ def load_parameters(params, controller):
         p.data.copy_(p_0)
 
 
-def to_log_cma(es):
+def to_log_cma(es: cma.CMAEvolutionStrategy) -> Dict[str, float]:
     to_log = {}
 
     # rewards (best, worst, mean, std)
-    to_log["best_performance"] = - min(es.fit.fit)
-    to_log["worst_performance"] = - max(es.fit.fit)
-    to_log["mean_performance"] = - np.mean(es.fit.fit)
-    to_log["std_performance"] = - np.std(es.fit.fit)
+    to_log["best_performance"] = -min(es.fit.fit)
+    to_log["worst_performance"] = -max(es.fit.fit)
+    to_log["mean_performance"] = -np.mean(es.fit.fit)
+    to_log["std_performance"] = -np.std(es.fit.fit)
     to_log["performance_mean_plus_std"] = (
         to_log["mean_performance"] + to_log["std_performance"]
     )

@@ -2,6 +2,8 @@ import os
 from os import mkdir
 from os.path import join, exists
 from time import sleep
+from typing import Tuple, List
+
 import cma
 import gym
 import hydra
@@ -42,23 +44,13 @@ class Controller(nn.Module):
 class RolloutGenerator(object):
     """Utility to generate rollouts.
     Encapsulate everything that is needed to generate rollouts in the TRUE ENV
-    using a controller with previously trained VAE and MDRNN.
-    :attr vae: VAE model loaded from mdir/vae
-    :attr mdrnn: MDRNN model loaded from mdir/mdrnn
-    :attr controller: Controller, either loaded from mdir/ctrl or randomly
-        initialized
-    :attr env: instance of the CarRacing-v0 gym environment
-    :attr device: device used to run VAE, MDRNN and Controller
-    :attr time_limit: rollouts have a maximum of time_limit timesteps
+    using a controller with previously trained VAE and MDN-RNN.
     """
 
     def __init__(self, cfg, device, time_limit, render=False):
         """Build vae, rnn, controller and environment."""
-
         self.cfg = cfg
         self.render = render
-
-        self.rollout_count = 0
 
         # transformations
         self.transform = transforms.Compose(
@@ -107,7 +99,9 @@ class RolloutGenerator(object):
         self.device = device
         self.time_limit = time_limit
 
-    def get_action_and_transition(self, obs, hidden):
+    def get_action_and_transition(
+        self, obs: torch.Tensor, hidden: torch.Tensor
+    ) -> Tuple[np.ndarray, torch.Tensor]:
         """Get action and transition.
         Encode obs to latent using the VAE, then obtain estimation for next
         latent and next hidden state using the MDRNN and compute the controller
@@ -118,22 +112,23 @@ class RolloutGenerator(object):
             - action: 1D np array
             - next_hidden (1 x 256) torch tensor
         """
+        # reconstruction observation stats
         _, latent_mu, _ = self.vae(obs)
 
+        # compute action
         action_probs = self.controller(latent_mu, hidden[0])
-
         action_probs = action_probs.cpu().detach().numpy()
-
         choices = []
         for i in range(action_probs.shape[0]):
             choice = np.argmax(action_probs[i]) * 3
             choices.append(choice)
         action = torch.tensor(choices, device=self.device).unsqueeze(0)
 
+        # update MDN-RNN hidden state
         _, _, _, _, _, next_hidden = self.mdrnn(action, latent_mu, hidden)
         return action.squeeze().cpu().numpy(), next_hidden
 
-    def rollout(self, params):
+    def rollout(self, params: torch.Tensor) -> int:
         """Execute a rollout and returns minus cumulative reward.
         Load :params: into the controller and execute a single rollout. This
         is the main API of this class.
@@ -151,35 +146,30 @@ class RolloutGenerator(object):
         # This first render is required!
         self.env.render()
 
+        # instantiate first hidden state of the MDN-RNN
         hidden = [
             torch.zeros(1, self.cfg.model.RSIZE, device=self.device) for _ in range(2)
         ]
 
         cumulative = 0
         i = 0
-
+        # generate rollout
         while True:
             obs = self.transform(obs).unsqueeze(0).to(self.device)
 
-            if self.render:
-                with torch.no_grad():
-                    reconstruction = self.vae(obs)[0]
-
+            # compute action and update hidden state
             action, hidden = self.get_action_and_transition(obs, hidden)
 
+            # execute action and get reward
             obs, reward, done, _ = self.env.step(action)
-
             obs = standardize_colors(obs, self.cfg.distribution_mode)
 
             if self.render:
                 self.env.render()
-                reconstruction = (
-                    reconstruction.squeeze().permute(1, 2, 0).cpu().detach().numpy()
-                )
 
+            # only return the cumulative reward
             cumulative += reward
             if done or i > self.time_limit:
-                self.rollout_count += 1
                 return -cumulative
 
             i += 1
@@ -199,15 +189,16 @@ class ControllerPipeline(object):
         if not exists(self.ctrl_dir):
             mkdir(self.ctrl_dir)
 
-        # multiprocessing variables
+        # optimization algorithm variables
         self.pop_size = cfg.model.pop_size
         self.n_samples = cfg.model.n_samples
         self.target_return = cfg.model.target_return
-        self.max_workers = cfg.model.max_workers
+
+        self.time_limit = 100000  # basically infinite. we decided not to stop a game episode based on time
 
         # Max number of workers
+        self.max_workers = cfg.model.max_worker
         self.num_workers = min(self.max_workers, self.n_samples * self.pop_size)
-        self.time_limit = 100000
 
         # Define queues and start workers
         self.p_queue = Queue()
@@ -220,7 +211,9 @@ class ControllerPipeline(object):
                 args=(self.p_queue, self.r_queue, self.e_queue, p_index),
             ).start()
 
-    def evaluate(self, solutions, results, rollouts=100):
+    def evaluate(
+        self, solutions: List[np.ndarray], results: List[float], rollouts: int = 100
+    ) -> Tuple[np.ndarray, float, float]:
         """Give current controller evaluation.
         Evaluation is minus the cumulated reward averaged over rollout runs.
         :args solutions: CMA set of solutions
@@ -243,10 +236,12 @@ class ControllerPipeline(object):
 
         return best_guess, np.mean(restimates), np.std(restimates)
 
-    def slave_routine(self, p_queue, r_queue, e_queue, p_index):
+    def slave_routine(
+        self, p_queue: Queue, r_queue: Queue, e_queue: Queue, p_index: int
+    ) -> None:
         """Thread routine.
-        Threads interact with p_queue, the parameters queue, r_queue, the result
-        queue and e_queue the end queue. They pull parameters from p_queue, execute
+        Threads interact with p_queue (the parameters queue), r_queue (the result
+        queue) and e_queue (the end queue). They pull parameters from p_queue, execute
         the corresponding rollout, then place the result in r_queue.
         Each parameter has its own unique id. Parameters are pulled as tuples
         (s_id, params) and results are pushed as (s_id, result).  The same
@@ -276,8 +271,11 @@ class ControllerPipeline(object):
                     s_id, params = p_queue.get()
                     r_queue.put((s_id, r_gen.rollout(params)))
 
-    def optimize(self):
+    def optimize(self) -> None:
+        """Launch the CMA optimization algorithm."""
+        # initialize the wandb project (for each thread)
         wandb.init(**self.cfg.logging)
+
         # define current best and load parameters
         cur_best = None
         ctrl_file = join(self.ctrl_dir, "best.tar")
@@ -289,20 +287,25 @@ class ControllerPipeline(object):
             self.controller.load_state_dict(state["state_dict"])
             print("Previous best was {}...".format(-cur_best))
 
+        # initialize the CMA Evolution algorithm
         parameters = self.controller.parameters()
         es = cma.CMAEvolutionStrategy(
             flatten_parameters(parameters), 0.1, {"popsize": self.pop_size}
         )
 
         epoch = 0
-        log_step = 16
+        log_step = self.cfg.log_step
 
+        # start the training
         while True:
             if cur_best is not None and -cur_best >= self.target_return:
                 print("Already better than target, breaking...")
                 break
 
-            r_list = [0] * self.pop_size  # result list
+            # result list
+            r_list = [0] * self.pop_size
+
+            # Generate step
             solutions = es.ask()
 
             # push parameters to queue
@@ -320,11 +323,13 @@ class ControllerPipeline(object):
                 pbar.update(1)
             pbar.close()
 
+            # Test step
             es.tell(solutions, r_list)
 
             es.disp()
             to_log = to_log_cma(es)
 
+            # Select step
             # evaluation and saving
             if epoch % log_step == log_step - 1:
                 best_params, best, std_best = self.evaluate(solutions, r_list)

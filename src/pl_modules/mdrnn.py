@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 import hydra
 import omegaconf
 import pytorch_lightning as pl
@@ -47,7 +47,9 @@ def gmm_loss(
 
 
 class _MDRNNBase(nn.Module):
-    def __init__(self, latents, actions, hiddens, gaussians):
+    def __init__(
+        self, latents: int, actions: int, hiddens: int, gaussians: int
+    ) -> None:
         super().__init__()
         self.latents = latents
         self.actions = actions
@@ -69,7 +71,9 @@ class MDRNN(_MDRNNBase):
         super().__init__(latents, actions, hiddens, gaussians)
         self.rnn = nn.LSTM(latents + actions, hiddens)
 
-    def forward(self, actions, latents):
+    def forward(
+        self, actions: int, latents: int
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """MULTI STEPS forward.
         :args actions: (SEQ_LEN, BSIZE, ASIZE) torch tensor
         :args latents: (SEQ_LEN, BSIZE, LSIZE) torch tensor
@@ -115,7 +119,16 @@ class MDRNNCell(_MDRNNBase):
         super().__init__(latents, actions, hiddens, gaussians)
         self.rnn = nn.LSTMCell(latents + actions, hiddens)
 
-    def forward(self, action, latent, hidden):
+    def forward(
+        self, action: int, latent: int, hidden: int
+    ) -> Tuple[
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+    ]:
         """ONE STEP forward.
         :args actions: (BSIZE, ASIZE) torch tensor
         :args latents: (BSIZE, LSIZE) torch tensor
@@ -172,7 +185,9 @@ class MDRNNModel(pl.LightningModule):
         )
         self.vae.eval()
 
-    def to_latent(self, obs, next_obs):
+    def to_latent(
+        self, obs: torch.Tensor, next_obs: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Transform observations to latent space.
         :args obs: 5D torch tensor (BSIZE, SEQ_LEN, ASIZE, SIZE, SIZE)
         :args next_obs: 5D torch tensor (BSIZE, SEQ_LEN, ASIZE, SIZE, SIZE)
@@ -207,13 +222,13 @@ class MDRNNModel(pl.LightningModule):
 
     def get_loss(
         self,
-        latent_obs,
-        action,
-        reward,
-        terminal,
-        latent_next_obs,
+        latent_obs: torch.Tensor,
+        action: int,
+        reward: int,
+        terminal: int,
+        latent_next_obs: torch.Tensor,
         include_reward: bool,
-    ):
+    ) -> Dict[str, torch.Tensor]:
         """Compute losses.
         The loss that is computed is:
         (GMMLoss(latent_next_obs, GMMPredicted) + MSE(reward, predicted_reward) +
@@ -244,7 +259,7 @@ class MDRNNModel(pl.LightningModule):
         loss = (gmm + bce + mse) / scale
         return dict(gmm=gmm, bce=bce, mse=mse, loss=loss)
 
-    def forward(self, batch, **kwargs) -> Dict[str, torch.Tensor]:
+    def forward(self, batch: torch.Tensor, **kwargs) -> Dict[str, torch.Tensor]:
         """
         Method for the forward pass.
         'training_step', 'validation_step' and 'test_step' should call
@@ -259,10 +274,10 @@ class MDRNNModel(pl.LightningModule):
         )
         return losses
 
-    def step(self, batch: Any, batch_idx: int):
+    def step(self, batch: torch.Tensor, batch_idx: int) -> Dict[str, torch.Tensor]:
         return self(batch)
 
-    def training_step(self, batch: Any, batch_idx: int) -> torch.Tensor:
+    def training_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
         loss = self.step(batch, batch_idx)["loss"]
 
         self.log_dict(
@@ -270,14 +285,14 @@ class MDRNNModel(pl.LightningModule):
         )
         return loss
 
-    def validation_step(self, batch: Any, batch_idx: int) -> torch.Tensor:
+    def validation_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
         loss = self.step(batch, batch_idx)["loss"]
         self.log_dict(
             {"val_loss": loss}, on_step=False, on_epoch=True, prog_bar=True,
         )
         return loss
 
-    def test_step(self, batch: Any, batch_idx: int) -> torch.Tensor:
+    def test_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
         loss = self.step(batch, batch_idx)["loss"]
         self.log_dict({"test_loss": loss},)
         return loss
