@@ -10,7 +10,6 @@ from omegaconf import DictConfig
 from torch.utils.data import DataLoader, Dataset
 
 from src.common.utils import PROJECT_ROOT
-from src.pl_data.CustomDataLoader import CustomDataLoader
 
 
 def worker_init_fn(id: int):

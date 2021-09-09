@@ -1,12 +1,7 @@
-from typing import Any, Dict, Sequence, Tuple, Union
+from typing import Any, Dict
 import hydra
 import omegaconf
 import pytorch_lightning as pl
-import torch
-from omegaconf import DictConfig
-from torch.optim import Optimizer
-import torch.nn.functional as F
-
 from src.common.utils import PROJECT_ROOT
 
 import torch
@@ -17,7 +12,9 @@ from torch.distributions.normal import Normal
 from src.pl_modules.vae import VaeModel
 
 
-def gmm_loss(batch, mus, sigmas, logpi, reduce=True):
+def gmm_loss(
+    batch: torch.Tensor, mus: torch.Tensor, sigmas: torch.Tensor, logpi: torch.Tensor,
+) -> float:
     """Computes the gmm loss.
     Compute minus the log probability of batch under the GMM model described
     by mus, sigmas, pi. Precisely, with bs1, bs2, ... the sizes of the batch
@@ -31,10 +28,9 @@ def gmm_loss(batch, mus, sigmas, logpi, reduce=True):
     :args reduce: if not reduce, the mean in the following formula is ommited
     :returns:
     loss(batch) = - mean_{i1=0..bs1, i2=0..bs2, ...} log(
-        sum_{k=1..gs} pi[i1, i2, ..., k] * N(
+            sum_{k=1..gs} pi[i1, i2, ..., k] * N(
             batch[i1, i2, ..., :] | mus[i1, i2, ..., k, :], sigmas[i1, i2, ..., k, :]))
-    NOTE: The loss is not reduced along the feature dimension (i.e. it should scale ~linearily
-    with fs).
+    NOTE: The loss is not reduced along the feature dimension (i.e., it should scale ~linearily with fs).
     """
     batch = batch.unsqueeze(-2)
     normal_dist = Normal(mus, sigmas)
@@ -47,9 +43,7 @@ def gmm_loss(batch, mus, sigmas, logpi, reduce=True):
     probs = torch.sum(g_probs, dim=-1)
 
     log_prob = max_log_probs.squeeze() + torch.log(probs)
-    if reduce:
-        return -torch.mean(log_prob)
-    return -log_prob
+    return -torch.mean(log_prob)
 
 
 class _MDRNNBase(nn.Module):
@@ -75,7 +69,7 @@ class MDRNN(_MDRNNBase):
         super().__init__(latents, actions, hiddens, gaussians)
         self.rnn = nn.LSTM(latents + actions, hiddens)
 
-    def forward(self, actions, latents):  # pylint: disable=arguments-differ
+    def forward(self, actions, latents):
         """MULTI STEPS forward.
         :args actions: (SEQ_LEN, BSIZE, ASIZE) torch tensor
         :args latents: (SEQ_LEN, BSIZE, LSIZE) torch tensor
@@ -121,7 +115,7 @@ class MDRNNCell(_MDRNNBase):
         super().__init__(latents, actions, hiddens, gaussians)
         self.rnn = nn.LSTMCell(latents + actions, hiddens)
 
-    def forward(self, action, latent, hidden):  # pylint: disable=arguments-differ
+    def forward(self, action, latent, hidden):
         """ONE STEP forward.
         :args actions: (BSIZE, ASIZE) torch tensor
         :args latents: (BSIZE, LSIZE) torch tensor
@@ -202,9 +196,7 @@ class MDRNNModel(pl.LightningModule):
 
             latent_obs, latent_next_obs = [
                 (x_mu + x_logsigma.exp() * torch.randn_like(x_mu)).view(
-                    self.hparams.BSIZE,
-                    self.hparams.SEQ_LEN,
-                    self.hparams.LSIZE,
+                    self.hparams.BSIZE, self.hparams.SEQ_LEN, self.hparams.LSIZE,
                 )
                 for x_mu, x_logsigma in [
                     (obs_mu, obs_logsigma),
@@ -263,12 +255,7 @@ class MDRNNModel(pl.LightningModule):
         obs, action, reward, terminal, next_obs = batch.values()
         latent_obs, latent_next_obs = self.to_latent(obs, next_obs)
         losses = self.get_loss(
-            latent_obs,
-            action,
-            reward,
-            terminal,
-            latent_next_obs,
-            include_reward=True,
+            latent_obs, action, reward, terminal, latent_next_obs, include_reward=True,
         )
         return losses
 
@@ -279,34 +266,23 @@ class MDRNNModel(pl.LightningModule):
         loss = self.step(batch, batch_idx)["loss"]
 
         self.log_dict(
-            {"train_loss": loss},
-            on_step=True,
-            on_epoch=True,
-            prog_bar=True,
+            {"train_loss": loss}, on_step=True, on_epoch=True, prog_bar=True,
         )
         return loss
 
     def validation_step(self, batch: Any, batch_idx: int) -> torch.Tensor:
         loss = self.step(batch, batch_idx)["loss"]
         self.log_dict(
-            {"val_loss": loss},
-            on_step=False,
-            on_epoch=True,
-            prog_bar=True,
+            {"val_loss": loss}, on_step=False, on_epoch=True, prog_bar=True,
         )
         return loss
 
     def test_step(self, batch: Any, batch_idx: int) -> torch.Tensor:
         loss = self.step(batch, batch_idx)["loss"]
-        self.log_dict(
-            {"test_loss": loss},
-        )
+        self.log_dict({"test_loss": loss},)
         return loss
 
-    def configure_optimizers(
-        self,
-    ) -> Dict[str, Any]:
-        # ) -> Union[Optimizer, Tuple[Sequence[Optimizer], Sequence[Any]]]:
+    def configure_optimizers(self,) -> Dict[str, Any]:
         """
         Choose what optimizers and learning-rate schedulers to use in your optimization.
         Normally you'd need one. But in the case of GANs or similar you might have multiple.
@@ -324,7 +300,7 @@ class MDRNNModel(pl.LightningModule):
             self.hparams.optim.optimizer, params=self.parameters(), _convert_="partial"
         )
         if not self.hparams.optim.use_lr_scheduler:
-            return [opt]
+            return {"optimizer": opt}
         scheduler = hydra.utils.instantiate(
             self.hparams.optim.lr_scheduler, optimizer=opt
         )

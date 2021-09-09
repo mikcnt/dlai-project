@@ -2,5 +2,3 @@ _target_: src.pl_modules.vae.VaeModel
 
 img_channels: 3
 latent_size: 64
-
-

@@ -1,15 +1,43 @@
 from src.pl_data.dataset import GameEpisodeDataset
 from src.pl_modules.controller_utils import rnn_adjust_parameters
-from src.pl_modules.mdrnn import MDRNNCell
+from src.pl_modules.mdrnn import MDRNNCell, MDRNN, MDRNNModel
 from src.plunder_standardize_colors import standardize_colors
 import torch
 import matplotlib.pyplot as plt
 from src.pl_modules.vae import VaeModel
 import numpy as np
+import torch.nn.functional as f
 
 
 def to_numpy(x: torch.Tensor):
     return x.cpu().detach().squeeze().permute(1, 2, 0).numpy()
+
+
+def to_latent(obs, next_obs, vae):
+    bs, seq_len, channels, size, size = obs.shape
+
+    with torch.no_grad():
+        obs, next_obs = [
+            f.interpolate(
+                x.view(-1, 3, size, size),
+                size=size,
+                mode="bilinear",
+                align_corners=True,
+            )
+            for x in (obs, next_obs)
+        ]
+        (obs_mu, obs_logsigma), (next_obs_mu, next_obs_logsigma) = [
+            vae(x)[1:] for x in (obs, next_obs)
+        ]
+
+        latent_obs, latent_next_obs = [
+            (x_mu + x_logsigma.exp() * torch.randn_like(x_mu)).view(bs, seq_len, 32,)
+            for x_mu, x_logsigma in [
+                (obs_mu, obs_logsigma),
+                (next_obs_mu, next_obs_logsigma),
+            ]
+        ]
+    return latent_obs, latent_next_obs
 
 
 if __name__ == "__main__":
@@ -31,13 +59,18 @@ if __name__ == "__main__":
 
     # load vae
     vae = VaeModel.load_from_checkpoint(vae_path, map_location=device).to(device)
+    decoder = vae.model.decoder
 
     # load MDRNN
-    rnn_state = torch.load(mdrnn_path, map_location=device)
-    rnn_state = rnn_state["state_dict"]
-    rnn_state = rnn_adjust_parameters(rnn_state)
-    mdrnn = MDRNNCell(LSIZE, ASIZE, RSIZE, 5).to(device)
-    mdrnn.load_state_dict(rnn_state)
+    mdrnn_model = MDRNNModel.load_from_checkpoint(mdrnn_path, map_location=device).to(
+        device
+    )
+    mdrnn = mdrnn_model.model
+    # rnn_state = torch.load(mdrnn_path, map_location=device)
+    # rnn_state = rnn_state["state_dict"]
+    # rnn_state = rnn_adjust_parameters(rnn_state)
+    # mdrnn = MDRNN(LSIZE, ASIZE, RSIZE, 5).to(device)
+    # mdrnn.load_state_dict(rnn_state)
 
     batch = dataset[12]
 
@@ -52,26 +85,31 @@ if __name__ == "__main__":
     recon_x_np = to_numpy(recon_x)
 
     # visualize reconstruction (test vae)
-    f, axarr = plt.subplots(2)
-    axarr[0].imshow(obs_np)
-    axarr[1].imshow(recon_x_np)
-    plt.show()
+    # f, axarr = plt.subplots(2)
+    # axarr[0].imshow(obs_np)
+    # axarr[1].imshow(recon_x_np)
+    # plt.show()
 
     # test mdrnn
     action = batch["actions"][0][0].to(device).unsqueeze(0)
-    next_obs = batch["next_obs"][0][0].to(device).unsqueeze(0)
+    next_obs = batch["next_obs"][0][0].to(device).unsqueeze(0).unsqueeze(0)
+    obs = obs.unsqueeze(0)
 
-    hidden = [torch.zeros(1, RSIZE, device=device) for _ in range(2)]
 
-    mus, sigmas, logpi, r, d, next_hidden = mdrnn(action, mu, hidden)
+    latent_obs, latent_next_obs = to_latent(obs, next_obs, vae)
 
-    print("ao", mu.shape, logsigma.shape)
+    # hidden = [torch.zeros(1, RSIZE, device=device) for _ in range(2)]
 
-    print(mus.shape)
-    print(sigmas.shape)
-    print(logpi.shape)
-    print(r.shape)
-    print(d.shape)
-    print(next_hidden[0].shape, next_hidden[1].shape)
+    # mus, sigmas, logpi, r, d, next_hidden = mdrnn(action, mu, hidden)
+    mus, sigmas, logpi, rs, ds = mdrnn(action, latent_obs)
+    print("mu.shape =", mu.shape)
+    print("logsigma.shape =", logsigma.shape)
 
-    print(vae.model.decoder)
+    print("mus.shape =", mus.shape)
+    print("sigmas.shape =", sigmas.shape)
+    print("logpi.shape =", logpi.shape)
+    # print("r.shape =", r.shape)
+    # print("d.shape =", d.shape)
+
+    print((logpi * torch.normal(mus, sigmas)).shape)
+    sampled = torch.sum(logpi * torch.normal(mus, sigmas), dim=2)

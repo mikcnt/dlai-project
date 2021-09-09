@@ -1,13 +1,5 @@
 _target_: src.pl_modules.mdrnn.MDRNNModel
 
-#latents: 32
-#actions: 3
-#hiddens: 256
-#gaussians: 5
-#size: 64
-#red_size: 64
-#seq_len: 32
-
 ASIZE: 1      # Action size: 1 is a scalar, n is an n-tuple.
 LSIZE: 64     # Latent Size
 RSIZE: 256    # Number of hidden units

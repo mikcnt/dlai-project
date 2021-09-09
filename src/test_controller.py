@@ -1,8 +1,7 @@
-import gym
 import hydra
+import numpy as np
 import torch
 from omegaconf import DictConfig
-
 from src.common.utils import PROJECT_ROOT
 from src.pl_modules.controller import RolloutGenerator
 
@@ -11,10 +10,15 @@ from src.pl_modules.controller import RolloutGenerator
 def main(cfg: DictConfig):
     device = torch.device("cuda")
     rollout_generator = RolloutGenerator(
-        cfg=cfg, device=device, time_limit=100000, render=True
+        cfg=cfg, device=device, time_limit=100000, render=False
     )
-    cumulative = rollout_generator.rollout(params=None)
-    print(cumulative)
+    scores = []
+    for i in range(100):
+        cumulative = rollout_generator.rollout(params=None)
+        print(f"run: {i} - {cumulative}", cumulative)
+        scores.append(cumulative)
+
+    print("mean score", np.mean(scores))
 
 
 if __name__ == "__main__":

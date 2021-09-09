@@ -206,27 +206,18 @@ class VaeModel(pl.LightningModule):
         for x in outputs:
             images.extend(x["images"])
 
-        # images = images[: self.hparams.logging.n_log_images]
-
         # ignore if it not a real validation epoch. The first one is not.
         print(f"Logged {len(images)} images for each category.")
 
-        self.logger.experiment.log(
-            {f"images_{self.current_epoch}": images},
-        )
+        self.logger.experiment.log({f"images_{self.current_epoch}": images})
 
     def test_step(self, batch: Any, batch_idx: int) -> torch.Tensor:
         losses = self.step(batch, batch_idx)["losses"]
         test_loss = losses["reconstruction_loss"] + losses["continuity_loss"]
-        self.log_dict(
-            {"test_loss": test_loss},
-        )
+        self.log_dict({"test_loss": test_loss},)
         return test_loss
 
-    def configure_optimizers(
-        self,
-    ) -> Dict[str, Any]:
-        # ) -> Union[Optimizer, Tuple[Sequence[Optimizer], Sequence[Any]]]:
+    def configure_optimizers(self,) -> Dict[str, Any]:
         """
         Choose what optimizers and learning-rate schedulers to use in your optimization.
         Normally you'd need one. But in the case of GANs or similar you might have multiple.
@@ -244,7 +235,8 @@ class VaeModel(pl.LightningModule):
             self.hparams.optim.optimizer, params=self.parameters(), _convert_="partial"
         )
         if not self.hparams.optim.use_lr_scheduler:
-            return [opt]
+            return {"optimizer": opt}
+
         scheduler = hydra.utils.instantiate(
             self.hparams.optim.lr_scheduler, optimizer=opt
         )
@@ -253,7 +245,6 @@ class VaeModel(pl.LightningModule):
             "lr_scheduler": scheduler,
             "monitor": "val_loss",
         }
-        # return [opt], [scheduler]
 
 
 @hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="vae")

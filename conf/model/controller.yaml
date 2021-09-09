@@ -1,4 +1,5 @@
-_target_: src.pl_modules.mdrnn.MDRNNModel
+environment_name: "procgen:procgen-plunder-v0"
+distribution_mode: "easy"
 
 n_samples: 16
 pop_size: 64

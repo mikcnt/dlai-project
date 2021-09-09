@@ -1,32 +1,19 @@
 import os
-import sys
-from os import mkdir, listdir, unlink, getpid
+from os import mkdir
 from os.path import join, exists
 from time import sleep
-
-import PIL.Image
 import cma
 import gym
 import hydra
-import numpy as np
-from numpy.core.fromnumeric import argmax
 from omegaconf import DictConfig
-from torchvision.transforms import transforms
 from tqdm import tqdm
-import pprint
 
-import wandb
-
-from src.common.utils import get_env
-from scipy.special import softmax
-
-import matplotlib.pyplot as plt
-
-from src.common.utils import PROJECT_ROOT
-
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.multiprocessing import Process, Queue
+from torchvision.transforms import transforms
+import wandb
 
 from src.pl_modules.controller_utils import (
     rnn_adjust_parameters,
@@ -34,8 +21,7 @@ from src.pl_modules.controller_utils import (
     flatten_parameters,
     to_log_cma,
 )
-
-
+from src.common.utils import PROJECT_ROOT
 from src.pl_modules.mdrnn import MDRNNCell
 from src.pl_modules.vae import VaeModel
 from src.plunder_standardize_colors import standardize_colors
@@ -76,11 +62,7 @@ class RolloutGenerator(object):
 
         # transformations
         self.transform = transforms.Compose(
-            [
-                transforms.ToPILImage(),
-                # transforms.Resize((cfg.model.RED_SIZE, cfg.model.RED_SIZE)),
-                transforms.ToTensor(),
-            ]
+            [transforms.ToPILImage(), transforms.ToTensor(),]
         )
 
         # load VAE
@@ -111,11 +93,11 @@ class RolloutGenerator(object):
 
         # instantiate environment
         self.env = gym.make(
-            "procgen:procgen-plunder-v0",
+            self.cfg.environment_name,
             use_backgrounds=False,
             restrict_themes=True,
             use_monochrome_assets=True,
-            distribution_mode="easy",
+            distribution_mode=self.cfg.distribution_mode,
             start_level=0,
             num_levels=20,
             use_sequential_levels=True,
@@ -144,7 +126,6 @@ class RolloutGenerator(object):
 
         choices = []
         for i in range(action_probs.shape[0]):
-            # choice = np.random.choice(action_probs.shape[1], p=action_probs[i]) * 3
             choice = np.argmax(action_probs[i]) * 3
             choices.append(choice)
         action = torch.tensor(choices, device=self.device).unsqueeze(0)
@@ -165,7 +146,7 @@ class RolloutGenerator(object):
             load_parameters(params, self.controller)
 
         obs = self.env.reset()
-        obs = standardize_colors(obs, distribution_mode="easy")
+        obs = standardize_colors(obs, self.cfg.distribution_mode)
 
         # This first render is required!
         self.env.render()
@@ -178,7 +159,6 @@ class RolloutGenerator(object):
         i = 0
 
         while True:
-            np_obs = obs.copy()
             obs = self.transform(obs).unsqueeze(0).to(self.device)
 
             if self.render:
@@ -189,26 +169,7 @@ class RolloutGenerator(object):
 
             obs, reward, done, _ = self.env.step(action)
 
-            obs = standardize_colors(obs, distribution_mode="easy")
-            ################################
-            # reconstruction = (
-            #     reconstruction.squeeze().permute(1, 2, 0).cpu().detach().numpy()
-            # )
-            # f, axarr = plt.subplots(2)
-            # axarr[0].imshow(np_obs)
-            # axarr[1].imshow(reconstruction)
-            # f.savefig(
-            #     get_env("IMG_CONTROLLER")
-            #     + "/"
-            #     + f"{os.getpid()}".zfill(8)
-            #     + "_"
-            #     + f"{self.rollout_count}".zfill(3)
-            #     + "_"
-            #     + f"{i}".zfill(5)
-            #     + ".png"
-            # )
-            # plt.close(f)
-            ################################
+            obs = standardize_colors(obs, self.cfg.distribution_mode)
 
             if self.render:
                 self.env.render()
@@ -232,14 +193,6 @@ class ControllerPipeline(object):
         # main path
         self.logdir = cfg.model.controller_path
         os.makedirs(self.logdir, exist_ok=True)
-
-        # create tmp dir if non existent and clean it if existent
-        self.tmp_dir = join(self.logdir, "tmp")
-        if not exists(self.tmp_dir):
-            mkdir(self.tmp_dir)
-        else:
-            for fname in listdir(self.tmp_dir):
-                unlink(join(self.tmp_dir, fname))
 
         # create ctrl dir if non exitent
         self.ctrl_dir = join(self.logdir, "ctrl")
@@ -267,7 +220,7 @@ class ControllerPipeline(object):
                 args=(self.p_queue, self.r_queue, self.e_queue, p_index),
             ).start()
 
-    def evaluate(self, solutions, results, rollouts=5):
+    def evaluate(self, solutions, results, rollouts=100):
         """Give current controller evaluation.
         Evaluation is minus the cumulated reward averaged over rollout runs.
         :args solutions: CMA set of solutions
@@ -312,10 +265,6 @@ class ControllerPipeline(object):
         device = torch.device(
             "cuda:{}".format(gpu) if torch.cuda.is_available() else "cpu"
         )
-
-        # redirect streams
-        # sys.stdout = open(join(self.tmp_dir, str(getpid()) + ".out"), "a")
-        # sys.stderr = open(join(self.tmp_dir, str(getpid()) + ".err"), "a")
 
         with torch.no_grad():
             r_gen = RolloutGenerator(self.cfg, device, self.time_limit)
@@ -362,17 +311,14 @@ class ControllerPipeline(object):
                     self.p_queue.put((s_id, s))
 
             # retrieve results
-            if self.cfg.model.display:
-                pbar = tqdm(total=self.pop_size * self.n_samples)
+            pbar = tqdm(total=self.pop_size * self.n_samples)
             for _ in range(self.pop_size * self.n_samples):
                 while self.r_queue.empty():
                     sleep(0.1)
                 r_s_id, r = self.r_queue.get()
                 r_list[r_s_id] += r / self.n_samples
-                if self.cfg.model.display:
-                    pbar.update(1)
-            if self.cfg.model.display:
-                pbar.close()
+                pbar.update(1)
+            pbar.close()
 
             es.tell(solutions, r_list)
 
