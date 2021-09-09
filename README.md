@@ -1,4 +1,6 @@
-# World Models
+# Neighbourhood Models: a humble approach towards World Models
+[![](https://shields.io/badge/-nn--template-emerald?style=flat&logo=github&labelColor=gray)](https://github.com/lucmos/nn-template)
+
 **Authors**: [Michele Conti](https://github.com/mikcnt) and [Luca Iezzi](https://github.com/korovev).
 
 Codebase for the Deep Learning and Applied AI course project at Sapienza University of Rome (ay 2020/2021).
@@ -110,4 +112,5 @@ To train the Controller, run the following:
 $ PYTHONPATH=. python3 src/controller.py
 ```
 
-
+## Credits
+We took inspiration from the implementations of [Corentin Tallec](https://github.com/ctallec/world-models) and [Sebastian Risi](https://github.com/sebastianrisi/ga-world-models).
