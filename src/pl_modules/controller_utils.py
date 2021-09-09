@@ -7,7 +7,7 @@ import torch
 from torch import nn
 
 
-def rnn_adjust_parameters(state_dict: OrderedDict[str, torch.Tensor]) -> OrderedDict:
+def rnn_adjust_parameters(state_dict: Dict[str, torch.Tensor]) -> OrderedDict:
     state_dict = {
         k.replace("model.", ""): v for k, v in state_dict.items() if "vae" not in k
     }

@@ -85,11 +85,11 @@ class RolloutGenerator(object):
 
         # instantiate environment
         self.env = gym.make(
-            self.cfg.environment_name,
+            self.cfg.model.environment_name,
             use_backgrounds=False,
             restrict_themes=True,
             use_monochrome_assets=True,
-            distribution_mode=self.cfg.distribution_mode,
+            distribution_mode=self.cfg.model.distribution_mode,
             start_level=0,
             num_levels=20,
             use_sequential_levels=True,
@@ -141,7 +141,7 @@ class RolloutGenerator(object):
             load_parameters(params, self.controller)
 
         obs = self.env.reset()
-        obs = standardize_colors(obs, self.cfg.distribution_mode)
+        obs = standardize_colors(obs, self.cfg.model.distribution_mode)
 
         # This first render is required!
         self.env.render()
@@ -162,7 +162,7 @@ class RolloutGenerator(object):
 
             # execute action and get reward
             obs, reward, done, _ = self.env.step(action)
-            obs = standardize_colors(obs, self.cfg.distribution_mode)
+            obs = standardize_colors(obs, self.cfg.model.distribution_mode)
 
             if self.render:
                 self.env.render()

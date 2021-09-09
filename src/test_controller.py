@@ -10,7 +10,7 @@ from src.pl_modules.controller import RolloutGenerator
 def main(cfg: DictConfig):
     device = torch.device("cuda")
     rollout_generator = RolloutGenerator(
-        cfg=cfg, device=device, time_limit=100000, render=False
+        cfg=cfg, device=device, time_limit=100000, render=True
     )
     scores = []
     for i in range(100):
